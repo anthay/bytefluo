@@ -2,7 +2,7 @@
     Copyright (c) 2008,2009 Anthony C. Hay
     Distributed under the BSD license, see:
     http://creativecommons.org/licenses/BSD/ */
- 
+
 #include "bytefluo.h"
 
 #include <iostream>
@@ -132,8 +132,8 @@ void test_assignment()
 {
     // raw_data is some arbitrary array of bytes
     const unsigned char raw_data[7] = {
-		0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
-	};
+        0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
+    };
     bytefluo buf1(raw_data, raw_data + sizeof(raw_data), bytefluo::big_endian);
     bytefluo buf2(buf1);
     
@@ -178,8 +178,8 @@ void test_eos()
 {
     // raw_data is some arbitrary array of bytes
     const unsigned char raw_data[] = {
-		1, 2, 3, 4, 5, 6, 7
-	};
+        1, 2, 3, 4, 5, 6, 7
+    };
     const long raw_data_len(static_cast<long>(sizeof(raw_data)));
 
     // empty stream
@@ -218,8 +218,8 @@ void test_size()
 {
     // raw_data is some arbitrary array of bytes
     const unsigned char raw_data[] = {
-		1, 2, 3, 4, 5, 6, 7
-	};
+        1, 2, 3, 4, 5, 6, 7
+    };
     const size_t raw_data_len(sizeof(raw_data));
 
     // empty stream
@@ -255,8 +255,8 @@ void test_seek_current()
 {
     // raw_data is some arbitrary array of bytes
     const unsigned char raw_data[] = {
-		1, 2, 3, 4, 5, 6, 7
-	};
+        1, 2, 3, 4, 5, 6, 7
+    };
     const long raw_data_len(static_cast<long>(sizeof(raw_data)));
     const uint8_type default_value(42); // value not found in raw_data
     uint8_type val;
@@ -314,8 +314,8 @@ void test_seek_end()
 {
     // raw_data is some arbitrary array of bytes
     const unsigned char raw_data[] = {
-		1, 2, 3, 4, 5, 6, 7
-	};
+        1, 2, 3, 4, 5, 6, 7
+    };
     const long raw_data_len(static_cast<long>(sizeof(raw_data)));
     const uint8_type default_value(42); // value not found in raw_data
     uint8_type val;
@@ -361,8 +361,8 @@ void test_seek_begin()
 {
     // raw_data is some arbitrary array of bytes
     const unsigned char raw_data[] = {
-		1, 2, 3, 4, 5, 6, 7
-	};
+        1, 2, 3, 4, 5, 6, 7
+    };
     const long raw_data_len(static_cast<long>(sizeof(raw_data)));
     const uint8_type default_value(42); // value not found in raw_data
     uint8_type val;
@@ -469,8 +469,8 @@ void test_basic_functionality()
 {
     // raw_data is some arbitrary array of bytes
     const unsigned char raw_data[7] = {
-		0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
-	};
+        0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
+    };
 
     // create a bytefluo object to manage access to raw_data
     // let's say the bytes in buf are in big-endian order
@@ -567,6 +567,6 @@ int main()
 
     std::cout << "tests executed " << g_test_count;
     std::cout << ", tests failed " << g_fault_count << '\n';
-	return g_fault_count ? EXIT_FAILURE : EXIT_SUCCESS;
+    return g_fault_count ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
