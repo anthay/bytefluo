@@ -187,11 +187,6 @@ void test_eos()
         bytefluo buf(raw_data, raw_data, bytefluo::big_endian);
         TEST_EQUAL(buf.eos(), true);
     }
-    {
-        std::vector<unsigned char> v;
-        bytefluo buf(v, bytefluo::big_endian);
-        TEST_EQUAL(buf.eos(), true);
-    }
     // stream of 1 byte
     {
         bytefluo buf(raw_data, raw_data + 1, bytefluo::big_endian);
@@ -407,17 +402,26 @@ void test_seek_begin()
 
 void test_basic_vector_functionality()
 {
+    {
+        std::vector<char> v;
+        bytefluo buf(bytefluo_from_vector(v, bytefluo::big_endian));
+        TEST_EQUAL(buf.size(), 0);
+        TEST_EQUAL(buf.eos(), true);
+    }
+
     std::vector<unsigned char> raw_data;
     for (unsigned char i = 1; i < 8; ++i)
         raw_data.push_back(i);
     
     // create a bytefluo object to manage access to the contents of the
     // raw_data vector; let's say the bytes are in big-endian order
-    bytefluo buf(raw_data, bytefluo::big_endian);
+    bytefluo buf(bytefluo_from_vector(raw_data, bytefluo::big_endian));
     
     // note that the bytefluo object, buf, does not contain a copy of
     // raw_data, it merely provides a convenient means to access raw_data
-    
+
+    TEST_EQUAL(buf.size(), raw_data.size());
+
     // read successive values from raw_data (via buf) and check them
     {
         uint8_type val = 0x99;
@@ -520,15 +524,20 @@ void test_basic_functionality()
     // to read any further will result in an exception being thrown
     {
         TEST_EQUAL(buf.eos(), true);
-        uint8_type val;
-        TEST_EXCEPTION(buf >> val, bytefluo_exception);
+        uint8_type val8;
+        TEST_EXCEPTION(buf >> val8, bytefluo_exception);
         // the bytefluo buf is still in a well defined usable
         // state - as if no exception had been thrown - we
         // are still sitting at the end of raw_data
         TEST_EQUAL(buf.eos(), true);
+
         buf.seek_end(1);
-        buf >> val;
-        TEST_EQUAL(val, 0xFF);
+        uint16_type val16;
+        // can't read a 16-bit value when cursor is only 8 bits from buf end
+        TEST_EXCEPTION(buf >> val16, bytefluo_exception);
+        // still at 8 bits from buf end; we can read an 8-bit value
+        buf >> val8;
+        TEST_EQUAL(val8, 0xFF);
     }
 
     // now rewind buf and check it works with signed data too
@@ -547,6 +556,29 @@ void test_basic_functionality()
         int32_type val(0);
         buf >> val;
         TEST_EQUAL(val, -1122868); // 0xFFEEDDCC 32-bit 2's comp. = -1122868
+    }
+
+    // check copy construction and assignment
+    TEST_EQUAL(buf.seek_begin(1), 1);
+    {
+        bytefluo buf_copy(buf);
+        TEST_EQUAL(buf.size(), sizeof(raw_data));
+        TEST_EQUAL(buf_copy.size(), sizeof(raw_data));
+        TEST_EQUAL(buf.tellg(), 1);
+        TEST_EQUAL(buf_copy.tellg(), 1);
+        uint16_type val;
+        buf >> val;
+        TEST_EQUAL(val, 0xBBAA);
+        val = 0;
+        buf_copy >> val;
+        TEST_EQUAL(val, 0xBBAA);
+
+        bytefluo buf_assign(0, 0, bytefluo::big_endian);
+        TEST_EQUAL(buf_assign.size(), 0);
+        buf_assign = buf;
+        TEST_EQUAL(buf_assign.size(), sizeof(raw_data));
+        buf_assign >> val;
+        TEST_EQUAL(val, 0xDDCC);
     }
 }
 
@@ -567,6 +599,6 @@ int main()
 
     std::cout << "tests executed " << g_test_count;
     std::cout << ", tests failed " << g_fault_count << '\n';
-    return g_fault_count ? EXIT_FAILURE : EXIT_SUCCESS;
+	return g_fault_count ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 

@@ -52,19 +52,6 @@ public:
             throw bytefluo_exception("bytefluo: end precedes begin");
     }
 
-    // bytefluo will manage access to bytes in given 'vec'
-    bytefluo::bytefluo(
-        const std::vector<unsigned char> & vec,
-        byte_arrangement ba)
-    : buf_begin(0), buf_end(0), cursor(0), buf_byte_arrangement(ba)
-    {
-        if (!vec.empty()) {
-            buf_begin = &vec[0];
-            buf_end   = buf_begin + vec.size();
-            cursor    = buf_begin;
-        }
-    }
-    
     // specify the byte arrangement to be used on subsequent scalar reads
     void set_byte_arrangement(byte_arrangement ba)
     {
@@ -168,5 +155,22 @@ private:
         return static_cast<long>(cursor - buf_begin);
     }
 };
+
+
+// return bytefluo object to manage access to bytes in given 'vec';
+// NOTE that any operations on the vector that might change the value
+// of &vec[0] will silently invalidate the associated bytefluo object
+// so that attempts to read the vector contents via that bytefluo
+// object may cause a CRASH
+template <class item_type>
+bytefluo bytefluo_from_vector(
+    const std::vector<item_type> & vec,
+    bytefluo::byte_arrangement ba)
+{
+    return vec.empty()
+        ? bytefluo(0, 0, ba)
+        : bytefluo(&vec[0], &vec[0] + vec.size(), ba);
+}
+
 
 #endif //#ifdef BYTEFLUO_H_INCLUDED
