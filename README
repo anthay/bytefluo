@@ -4,11 +4,11 @@
 
 0  PURPOSE
 
-bytefluo is a C++ class for reading byte streams. You can use it to
-read simple integer scalar values with a specified byte order from a
-buffer, regardless of the native byte order of the computer on which
-the code is running. It will throw an exception if any attempt is
-made to access data beyond the specified bounds of the buffer.
+bytefluo is a C++ class for reading simple integer scalar values with
+a specified byte order from a buffer, regardless of the native byte
+order of the computer on which the code is running. It will throw an
+exception if any attempt is made to access data beyond the specified
+bounds of the buffer.
 
 The class was created to simplify the low-level parsing of binary
 data structures and to avoid having to write code such as
@@ -45,12 +45,14 @@ the file bytefluo_test.cpp. Compile this file and run it.
 OSX
  $ g++ -Wall bytefluo_test.cpp
  $ ./a.out
- tests executed 126, tests failed 0
+ tests executed N, tests failed 0
 
 Windows
  C:\test> cl /EHsc /W4 /nologo bytefluo_test.cpp
  C:\test> bytefluo_test
- tests executed 126, tests failed 0
+ tests executed N, tests failed 0
+
+(Where N is the number of tests in the current version of test suite.)
 
 The bytefluo library has been tested by the author under the following
 compilers

@@ -98,6 +98,7 @@ RFC_4122::uuid_t uuid_from_16_bytes_little_endian(const unsigned char * bytes)
 
 void test_more_or_less_real_world_example()
 {
+    // let's say you wanted to read a UUID encoded in 16 contiguous bytes...
     const unsigned char bytes[16] = {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
@@ -409,20 +410,20 @@ void test_basic_vector_functionality()
         TEST_EQUAL(buf.eos(), true);
     }
 
-    std::vector<unsigned char> raw_data;
+    std::vector<unsigned char> vec;
     for (unsigned char i = 1; i < 8; ++i)
-        raw_data.push_back(i);
+        vec.push_back(i);
     
     // create a bytefluo object to manage access to the contents of the
-    // raw_data vector; let's say the bytes are in big-endian order
-    bytefluo buf(bytefluo_from_vector(raw_data, bytefluo::big_endian));
+    // vec vector; let's say the bytes are in big-endian order
+    bytefluo buf(bytefluo_from_vector(vec, bytefluo::big_endian));
     
     // note that the bytefluo object, buf, does not contain a copy of
-    // raw_data, it merely provides a convenient means to access raw_data
+    // vec, it merely provides a convenient means to access vec
 
-    TEST_EQUAL(buf.size(), raw_data.size());
+    TEST_EQUAL(buf.size(), vec.size());
 
-    // read successive values from raw_data (via buf) and check them
+    // read successive values from vec (via buf) and check them
     {
         uint8_type val = 0x99;
         buf >> val;
@@ -459,11 +460,23 @@ void test_basic_vector_functionality()
         TEST_EQUAL(val, 0x07060504);
     }
     
-    // we are now at the end of the raw_data; check that attempting
+    // we are now at the end of the vec; check that attempting
     // to read any further will result in an exception being thrown
     {
         uint8_type val;
         TEST_EXCEPTION(buf >> val, bytefluo_exception);
+    }
+
+    // if you only need to read a few values you could just use the
+    // temporary returned by bytefluo_from_vector() directly
+    {
+        uint16_type a;
+        uint8_type b;
+        uint32_type c;
+        bytefluo_from_vector(vec, bytefluo::big_endian) >> a >> b >> c;
+        TEST_EQUAL(a, 0x0102);
+        TEST_EQUAL(b, 0x03);
+        TEST_EQUAL(c, 0x04050607);
     }
 }
 
@@ -482,7 +495,18 @@ void test_basic_functionality()
 
     // note that the bytefluo object, buf, does not contain a copy of
     // raw_data, it merely provides a convenient means to access raw_data
-    
+    // so you can do stuff like this
+    uint16_type a;
+    uint8_type b;
+    uint32_type c;
+    buf >> a >> b >> c;
+    TEST_EQUAL(a, 0x99AA);
+    TEST_EQUAL(b, 0xBB);
+    TEST_EQUAL(c, 0xCCDDEEFF);
+
+    // now move the cursor back to the start of the data and do it again
+    buf.seek_begin(0);
+
     // read successive values from raw_data (via buf) and check them
     {
         uint8_type val = 0x12;
