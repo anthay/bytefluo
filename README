@@ -27,7 +27,23 @@ and instead just write
  bar >> foo;
 
 (where this bar is a bytefluo object rather than the raw pointer of
-the previous examples).
+the previous examples). So, given some raw data, and a bytefluo
+object through which we will access the data, such as
+
+ unsigned char bytes[7] = { 0x99,0xAA,0xBB,0xCC,0xDD,0xEE,0xFF };
+ bytefluo buf(bytes, bytes + sizeof(bytes), bytefluo::big_endian);
+
+we can then do things like this
+
+ unsigned short a;
+ unsigned char b;
+ unsugned int c;
+
+ buf >> a >> b >> c;
+
+ assert(a == 0x99AA);
+ assert(b == 0xBB);
+ assert(c == 0xCCDDEEFF);
 
 
 1  BUILDING
@@ -134,11 +150,11 @@ This free function is provided as a convenient shorthand for
 bytefluo(&vec[0], &vec[0] + vec.size(), ba) for a non-empty vector
 and bytefluo(0, 0, ba) for an empty vector.
 
-NOTE that any operations on the vector that might change the value of
-&vec[0] (e.g. adding elements to the vector may cause the vector to
-reallocate its buffer) will silently invalidate the associated
-bytefluo object so that attempts to read the vector contents via that
-bytefluo object may cause a CRASH.
+NOTE that any operations on the vector that might change the value
+of &vec[0] or vec.size() (e.g. adding elements to the vector may
+cause the vector to reallocate its buffer) will silently invalidate
+the associated bytefluo object so that attempts to read the vector
+contents via that bytefluo object may cause a CRASH.
 
 E.g.
  std::vector<unsigned char> vec(99);
