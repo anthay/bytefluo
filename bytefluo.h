@@ -39,15 +39,15 @@ public:
     };
 
     // bytefluo will manage access to bytes in [begin, end)
-    bytefluo::bytefluo(
+    bytefluo(
         const void * begin,
         const void * end,
         byte_arrangement ba)
     : buf_begin(static_cast<const unsigned char *>(begin)),
       buf_end  (static_cast<const unsigned char *>(end)),
-      cursor   (static_cast<const unsigned char *>(begin)),
-      buf_byte_arrangement(ba)
+      cursor   (static_cast<const unsigned char *>(begin))
     {
+        set_byte_arrangement(ba);
         if (buf_end < buf_begin)
             throw bytefluo_exception("bytefluo: end precedes begin");
     }
@@ -55,6 +55,8 @@ public:
     // specify the byte arrangement to be used on subsequent scalar reads
     void set_byte_arrangement(byte_arrangement ba)
     {
+        if (ba != big_endian && ba != little_endian)
+            throw bytefluo_exception("bytefluo: invalid byte arrangement");
         buf_byte_arrangement = ba;
     }
 
@@ -71,17 +73,20 @@ public:
             // cursor -> most significant byte
             const unsigned char * p = cursor;
             cursor += out_size;
-            while (p != cursor) {
-                out <<= CHAR_BIT;
+            for (;;) {
                 out |= *p++;
+                if (p == cursor)
+                    break;
+                out <<= CHAR_BIT;
             }
         }
         else {
             // cursor -> least significant byte
-            const unsigned char * p = cursor + out_size;
-            while (p != cursor) {
-                out <<= CHAR_BIT;
+            for (const unsigned char * p = cursor + out_size;;) {
                 out |= *--p;
+                if (p == cursor)
+                    break;
+                out <<= CHAR_BIT;
             }
             cursor += out_size;
         }

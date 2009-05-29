@@ -129,6 +129,43 @@ void test_more_or_less_real_world_example()
 }
 
 
+void test_ctor_exceptions()
+{
+    const unsigned char raw_data[] = {
+        1, 2, 3, 4, 5, 6, 7
+    };
+    
+    // some valid streams
+    bytefluo(raw_data, raw_data + 1, bytefluo::big_endian);
+    bytefluo(raw_data, raw_data, bytefluo::big_endian);
+    
+    // invalid stream where end precedes begin - exception expected
+    TEST_EXCEPTION(
+        bytefluo(raw_data, raw_data - 1, bytefluo::big_endian),
+        bytefluo_exception);
+    
+    // another valid stream
+    bytefluo(raw_data, raw_data + 1, bytefluo::little_endian);
+    
+    // invalid byte order specified - exception expected
+    TEST_EXCEPTION(
+        bytefluo(raw_data, raw_data + 1, (bytefluo::byte_arrangement)99),
+        bytefluo_exception);
+    
+    // (also test set_byte_arrangement here)
+    bytefluo buf(raw_data, raw_data, bytefluo::big_endian);
+    
+    // the only valid byte order values
+    buf.set_byte_arrangement(bytefluo::big_endian);
+    buf.set_byte_arrangement(bytefluo::little_endian);
+    
+    // invalid byte order specified - exception expected
+    TEST_EXCEPTION(
+        buf.set_byte_arrangement((bytefluo::byte_arrangement)12345),
+        bytefluo_exception);
+}
+
+
 void test_assignment()
 {
     // raw_data is some arbitrary array of bytes
@@ -619,10 +656,12 @@ int main()
     test_size();
     test_eos();
     test_assignment();
+    test_ctor_exceptions();
     test_more_or_less_real_world_example();
 
     std::cout << "tests executed " << g_test_count;
     std::cout << ", tests failed " << g_fault_count << '\n';
 	return g_fault_count ? EXIT_FAILURE : EXIT_SUCCESS;
 }
+// "Those who play with bytes will get bytten." - Jon Bentley
 

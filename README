@@ -75,6 +75,7 @@ compilers
 
  - gcc v4.0.1 on OSX
  - Microsoft Visual C++ v7 (2003) on Windows
+ - Comeau 4.3.10.1 Beta 2 online in strict C++03 mode
 
 
 3  USING
