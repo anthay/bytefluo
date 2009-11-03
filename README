@@ -5,7 +5,7 @@
 0  PURPOSE
 
 bytefluo is a C++ class for reading simple integer scalar values with
-a specified byte order from a buffer, regardless of the native byte
+specified byte order from a buffer, regardless of the native byte
 order of the computer on which the code is running. It will throw an
 exception if any attempt is made to access data beyond the specified
 bounds of the buffer.
@@ -246,7 +246,7 @@ Return the number of bytes in the stream.
 
 E.g.
  std::vector<unsigned char> v(99);
- bytefluo buf(v, bytefluo::little_endian);
+ bytefluo buf(bytefluo_from_vector(v, bytefluo::big_endian));
  size_t siz = buf.size(); // siz = 99
 
 
