@@ -31,7 +31,7 @@ the previous examples). So, given some raw data, and a bytefluo
 object through which we will access the data, such as
 
  unsigned char bytes[7] = { 0x99,0xAA,0xBB,0xCC,0xDD,0xEE,0xFF };
- bytefluo buf(bytes, bytes + sizeof(bytes), bytefluo::big_endian);
+ bytefluo buf(bytes, bytes + sizeof(bytes), bytefluo::big);
 
 we can then do things like this
 
@@ -90,10 +90,10 @@ Here is another:
      const unsigned char bytes[8] = {
          0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77
      };
-     bytefluo buf(bytes, bytes + sizeof(bytes), bytefluo::big_endian);
+     bytefluo buf(bytes, bytes + sizeof(bytes), bytefluo::big);
      unsigned long x;
      buf >> x;  // x = 0x00112233
-     buf.set_byte_arrangement(bytefluo::little_endian);
+     buf.set_byte_order(bytefluo::little);
      buf >> x;  // x = 0x77665544
  }
 
@@ -124,20 +124,20 @@ The important things to know about bytefluo are
 
 3.2.1  CONSTRUCTION
 
- bytefluo(const void * begin, const void * end, byte_arrangement ba)
+ bytefluo(const void * begin, const void * end, byte_order bo)
 
 The bytefluo object will manage access to the bytes in the half open
 range [begin, end). Multi-byte scalars will be read assuming the given
-byte order 'ba'. 'ba' must be one of
+byte order 'bo'. 'bo' must be one of
 
- bytefluo::big_endian     most-significant byte has lowest address
- bytefluo::little_endian  least-significant byte has lowest address
+ bytefluo::big     most-significant byte has lowest address
+ bytefluo::little  least-significant byte has lowest address
 
 Throws bytefluo_exception if begin > end.
 
 E.g.
  unsigned char foo[99];
- bytefluo buf(foo, foo + sizeof(foo), bytefluo::big_endian);
+ bytefluo buf(foo, foo + sizeof(foo), bytefluo::big);
 
 
 3.2.2  CONSTRUCTION FROM VECTOR
@@ -145,11 +145,11 @@ E.g.
  template <class item_type>
  bytefluo bytefluo_from_vector(
     const std::vector<item_type> & vec,
-    bytefluo::byte_arrangement ba)
+    bytefluo::byte_order bo)
 
 This free function is provided as a convenient shorthand for
-bytefluo(&vec[0], &vec[0] + vec.size(), ba) for a non-empty vector
-and bytefluo(0, 0, ba) for an empty vector.
+bytefluo(&vec[0], &vec[0] + vec.size(), bo) for a non-empty vector
+and bytefluo(0, 0, bo) for an empty vector.
 
 NOTE that any operations on the vector that might change the value
 of &vec[0] or vec.size() (e.g. adding elements to the vector may
@@ -159,22 +159,22 @@ contents via that bytefluo object may cause a CRASH.
 
 E.g.
  std::vector<unsigned char> vec(99);
- bytefluo buf(bytefluo_from_vector(vec, bytefluo::big_endian));
+ bytefluo buf(bytefluo_from_vector(vec, bytefluo::big));
 
 
 3.2.3  SET BYTE ORDER
 
- void set_byte_arrangement(byte_arrangement ba)
+ void set_byte_order(byte_order bo)
 
 Specify the byte arrangement to be used on subsequent scalar reads.
-'ba' must be one of
+'bo' must be one of
 
- bytefluo::big_endian     most-significant byte has lowest address
- bytefluo::little_endian  least-significant byte has lowest address
+ bytefluo::big     most-significant byte has lowest address
+ bytefluo::little  least-significant byte has lowest address
 
 E.g.
  bytefluo buf(...);
- buf.set_byte_arrangement(bytefluo::big_endian);
+ buf.set_byte_order(bytefluo::big);
 
 
 3.2.4  READ INTEGER SCALAR
@@ -184,8 +184,8 @@ E.g.
 
 Read an integer scalar value from buffer at current cursor position.
 The scalar is read assuming the byte order set at construction or
-at the last call to set_byte_arrangement(). The cursor is advanced
-by the size of the scalar read.
+at the last call to set_byte_order(). The cursor is advanced by the
+size of the scalar read.
 
 E.g.
  bytefluo buf(...);
@@ -246,7 +246,7 @@ Return the number of bytes in the stream.
 
 E.g.
  std::vector<unsigned char> v(99);
- bytefluo buf(bytefluo_from_vector(v, bytefluo::big_endian));
+ bytefluo buf(bytefluo_from_vector(v, bytefluo::big));
  size_t siz = buf.size(); // siz = 99
 
 

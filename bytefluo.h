@@ -33,31 +33,31 @@ public:
 // manage specific byte-order read-only access to a given buffer
 class bytefluo {
 public:
-    enum byte_arrangement { // when reading a scalar...
-        big_endian,   // ...assume most-significant byte has lowest address
-        little_endian // ...assume least-significant byte has lowest address
+    enum byte_order { // when reading a scalar...
+        big,   // big endian: assume most-significant byte has lowest address
+        little // little e.: assume least-significant byte has lowest address
     };
 
     // bytefluo will manage access to bytes in [begin, end)
     bytefluo(
         const void * begin,
         const void * end,
-        byte_arrangement ba)
+        byte_order bo)
     : buf_begin(static_cast<const unsigned char *>(begin)),
       buf_end  (static_cast<const unsigned char *>(end)),
       cursor   (static_cast<const unsigned char *>(begin))
     {
-        set_byte_arrangement(ba);
+        set_byte_order(bo);
         if (buf_end < buf_begin)
             throw bytefluo_exception("bytefluo: end precedes begin");
     }
 
-    // specify the byte arrangement to be used on subsequent scalar reads
-    void set_byte_arrangement(byte_arrangement ba)
+    // specify the byte order to be used on subsequent scalar reads
+    void set_byte_order(byte_order bo)
     {
-        if (ba != big_endian && ba != little_endian)
-            throw bytefluo_exception("bytefluo: invalid byte arrangement");
-        buf_byte_arrangement = ba;
+        if (bo != big && bo != little)
+            throw bytefluo_exception("bytefluo: invalid byte order");
+        buf_byte_order = bo;
     }
 
     // read an integer scalar value from buffer at current cursor position
@@ -69,7 +69,7 @@ public:
         if (buf_end - cursor < static_cast<ptrdiff_t>(out_size))
             throw bytefluo_exception(
                 "bytefluo: attempt to read past end of data");
-        if (buf_byte_arrangement == big_endian) {
+        if (buf_byte_order == big) {
             // cursor -> most significant byte
             const unsigned char * p = cursor;
             cursor += out_size;
@@ -94,7 +94,7 @@ public:
     }
 
     // copy 'len' bytes from buffer at current cursor position to given 'dest'
-    // note that current buf_byte_arrangement has no affect on this operation
+    // note that current buf_byte_order has no affect on this operation
     void read(void * dest, size_t len)
     {
         if (buf_end - cursor < static_cast<ptrdiff_t>(len))
@@ -144,7 +144,7 @@ private:
     const unsigned char * buf_begin;
     const unsigned char * buf_end;
     const unsigned char * cursor;
-    byte_arrangement buf_byte_arrangement;
+    byte_order buf_byte_order;
 
     // set cursor to given 'new_cursor' iff 'new_cursor' is within buffer;
     // throw if not within buffer; return distance from buffer start to cursor
@@ -170,11 +170,11 @@ private:
 template <class item_type>
 bytefluo bytefluo_from_vector(
     const std::vector<item_type> & vec,
-    bytefluo::byte_arrangement ba)
+    bytefluo::byte_order bo)
 {
     return vec.empty()
-        ? bytefluo(0, 0, ba)
-        : bytefluo(&vec[0], &vec[0] + vec.size(), ba);
+        ? bytefluo(0, 0, bo)
+        : bytefluo(&vec[0], &vec[0] + vec.size(), bo);
 }
 
 

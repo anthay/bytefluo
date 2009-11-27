@@ -83,16 +83,16 @@ RFC_4122::uuid_t read_common(bytefluo & buf)
 }
 
 // read big-endian encoded UUID structure from given 16-byte buffer
-RFC_4122::uuid_t uuid_from_16_bytes_big_endian(const unsigned char * bytes)
+RFC_4122::uuid_t uuid_from_16_bytes_big(const unsigned char * bytes)
 {
-    bytefluo buf(bytes, bytes + 16, bytefluo::big_endian);
+    bytefluo buf(bytes, bytes + 16, bytefluo::big);
     return read_common(buf);
 }
     
 // read little-endian encoded UUID structure from given 16-byte buffer
-RFC_4122::uuid_t uuid_from_16_bytes_little_endian(const unsigned char * bytes)
+RFC_4122::uuid_t uuid_from_16_bytes_little(const unsigned char * bytes)
 {
-    bytefluo buf(bytes, bytes + 16, bytefluo::little_endian);
+    bytefluo buf(bytes, bytes + 16, bytefluo::little);
     return read_common(buf);
 }
 
@@ -107,7 +107,7 @@ void test_more_or_less_real_world_example()
     
     // first read raw data assuming big-endian byte ordering
     {
-        const uuid_t uuid(uuid_from_16_bytes_big_endian(bytes));
+        const uuid_t uuid(uuid_from_16_bytes_big(bytes));
         TEST_EQUAL(uuid.time_low,                   0x00112233);
         TEST_EQUAL(uuid.time_mid,                   0x4455);
         TEST_EQUAL(uuid.time_hi_and_version,        0x6677);
@@ -118,7 +118,7 @@ void test_more_or_less_real_world_example()
     
     // now read the same raw data assuming little-endian byte ordering
     {
-        const uuid_t uuid(uuid_from_16_bytes_little_endian(bytes));
+        const uuid_t uuid(uuid_from_16_bytes_little(bytes));
         TEST_EQUAL(uuid.time_low,                   0x33221100);
         TEST_EQUAL(uuid.time_mid,                   0x5544);
         TEST_EQUAL(uuid.time_hi_and_version,        0x7766);
@@ -136,32 +136,32 @@ void test_ctor_exceptions()
     };
     
     // some valid streams
-    bytefluo(raw_data, raw_data + 1, bytefluo::big_endian);
-    bytefluo(raw_data, raw_data, bytefluo::big_endian);
+    bytefluo(raw_data, raw_data + 1, bytefluo::big);
+    bytefluo(raw_data, raw_data, bytefluo::big);
     
     // invalid stream where end precedes begin - exception expected
     TEST_EXCEPTION(
-        bytefluo(raw_data, raw_data - 1, bytefluo::big_endian),
+        bytefluo(raw_data, raw_data - 1, bytefluo::big),
         bytefluo_exception);
     
     // another valid stream
-    bytefluo(raw_data, raw_data + 1, bytefluo::little_endian);
+    bytefluo(raw_data, raw_data + 1, bytefluo::little);
     
     // invalid byte order specified - exception expected
     TEST_EXCEPTION(
-        bytefluo(raw_data, raw_data + 1, (bytefluo::byte_arrangement)99),
+        bytefluo(raw_data, raw_data + 1, (bytefluo::byte_order)99),
         bytefluo_exception);
     
-    // (also test set_byte_arrangement here)
-    bytefluo buf(raw_data, raw_data, bytefluo::big_endian);
+    // (also test set_byte_order here)
+    bytefluo buf(raw_data, raw_data, bytefluo::big);
     
     // the only valid byte order values
-    buf.set_byte_arrangement(bytefluo::big_endian);
-    buf.set_byte_arrangement(bytefluo::little_endian);
+    buf.set_byte_order(bytefluo::big);
+    buf.set_byte_order(bytefluo::little);
     
     // invalid byte order specified - exception expected
     TEST_EXCEPTION(
-        buf.set_byte_arrangement((bytefluo::byte_arrangement)12345),
+        buf.set_byte_order((bytefluo::byte_order)12345),
         bytefluo_exception);
 }
 
@@ -172,7 +172,7 @@ void test_assignment()
     const unsigned char raw_data[7] = {
         0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
     };
-    bytefluo buf1(raw_data, raw_data + sizeof(raw_data), bytefluo::big_endian);
+    bytefluo buf1(raw_data, raw_data + sizeof(raw_data), bytefluo::big);
     bytefluo buf2(buf1);
     
     TEST_EQUAL(buf1.tellg(), 0);
@@ -200,7 +200,7 @@ void test_assignment()
     TEST_EQUAL(buf1.tellg(), 2);
     TEST_EQUAL(buf2.tellg(), 2);
 
-    buf2.set_byte_arrangement(bytefluo::little_endian);
+    buf2.set_byte_order(bytefluo::little);
     buf1 >> val32;
     TEST_EQUAL(buf1.tellg(), 6);
     TEST_EQUAL(buf2.tellg(), 2);
@@ -222,19 +222,19 @@ void test_eos()
 
     // empty stream
     {
-        bytefluo buf(raw_data, raw_data, bytefluo::big_endian);
+        bytefluo buf(raw_data, raw_data, bytefluo::big);
         TEST_EQUAL(buf.eos(), true);
     }
     // stream of 1 byte
     {
-        bytefluo buf(raw_data, raw_data + 1, bytefluo::big_endian);
+        bytefluo buf(raw_data, raw_data + 1, bytefluo::big);
         TEST_EQUAL(buf.eos(), false);
         buf.seek_end(0); // move cursor to end of stream
         TEST_EQUAL(buf.eos(), true);
     }
     // multi-byte stream
     {
-        bytefluo buf(raw_data, raw_data + raw_data_len, bytefluo::big_endian);
+        bytefluo buf(raw_data, raw_data + raw_data_len, bytefluo::big);
         // eos() false while cursor not at end of stream
         for (long i = 0; i != raw_data_len; ++i) {
             TEST_EQUAL(buf.eos(), false);
@@ -257,12 +257,12 @@ void test_size()
 
     // empty stream
     {
-        bytefluo buf(raw_data, raw_data, bytefluo::big_endian);
+        bytefluo buf(raw_data, raw_data, bytefluo::big);
         TEST_EQUAL(buf.size(), 0);
     }
     // stream of 1 byte
     {
-        bytefluo buf(raw_data, raw_data + 1, bytefluo::big_endian);
+        bytefluo buf(raw_data, raw_data + 1, bytefluo::big);
         // getting the size does not affect the cursor location
         TEST_EQUAL(buf.size(), 1);
         TEST_EQUAL(buf.seek_current(0), 0);
@@ -274,12 +274,12 @@ void test_size()
     }
     // multi-byte stream
     {
-        bytefluo buf(raw_data, raw_data + raw_data_len, bytefluo::big_endian);
+        bytefluo buf(raw_data, raw_data + raw_data_len, bytefluo::big);
         TEST_EQUAL(buf.size(), raw_data_len);
     }
     // invalid stream where end precedes begin
     {
-        TEST_EXCEPTION(bytefluo(raw_data, raw_data - 1, bytefluo::big_endian), bytefluo_exception);
+        TEST_EXCEPTION(bytefluo(raw_data, raw_data - 1, bytefluo::big), bytefluo_exception);
     }
 }
 
@@ -296,7 +296,7 @@ void test_seek_current()
 
     // create a bytefluo object to manage access to raw_data
     // let's say the bytes in buf are in big-endian order
-    bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big_endian);
+    bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big);
 
     // seek to end of data; seek_current() should return current offset
     TEST_EQUAL(buf.seek_current(raw_data_len), raw_data_len);
@@ -355,7 +355,7 @@ void test_seek_end()
 
     // create a bytefluo object to manage access to raw_data
     // let's say the bytes in buf are in big-endian order
-    bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big_endian);
+    bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big);
 
     // seek to end of data; seek_end() should return current offset
     TEST_EQUAL(buf.seek_end(0), raw_data_len);
@@ -402,7 +402,7 @@ void test_seek_begin()
 
     // create a bytefluo object to manage access to raw_data
     // let's say the bytes in buf are in big-endian order
-    bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big_endian);
+    bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big);
 
     // seek to end of data; seek_begin() should return current offset
     TEST_EQUAL(buf.seek_begin(raw_data_len), raw_data_len);
@@ -442,7 +442,7 @@ void test_basic_vector_functionality()
 {
     {
         std::vector<char> v;
-        bytefluo buf(bytefluo_from_vector(v, bytefluo::big_endian));
+        bytefluo buf(bytefluo_from_vector(v, bytefluo::big));
         TEST_EQUAL(buf.size(), 0);
         TEST_EQUAL(buf.eos(), true);
     }
@@ -453,7 +453,7 @@ void test_basic_vector_functionality()
     
     // create a bytefluo object to manage access to the contents of the
     // vec vector; let's say the bytes are in big-endian order
-    bytefluo buf(bytefluo_from_vector(vec, bytefluo::big_endian));
+    bytefluo buf(bytefluo_from_vector(vec, bytefluo::big));
     
     // note that the bytefluo object, buf, does not contain a copy of
     // vec, it merely provides a convenient means to access vec
@@ -479,7 +479,7 @@ void test_basic_vector_functionality()
 
     // now rewind buf and tell it to read the data as little-endian
     buf.seek_begin(0);
-    buf.set_byte_arrangement(bytefluo::little_endian);
+    buf.set_byte_order(bytefluo::little);
     
     {
         uint8_type val = 0x99;
@@ -510,7 +510,7 @@ void test_basic_vector_functionality()
         uint16_type a;
         uint8_type b;
         uint32_type c;
-        bytefluo_from_vector(vec, bytefluo::big_endian) >> a >> b >> c;
+        bytefluo_from_vector(vec, bytefluo::big) >> a >> b >> c;
         TEST_EQUAL(a, 0x0102);
         TEST_EQUAL(b, 0x03);
         TEST_EQUAL(c, 0x04050607);
@@ -528,7 +528,7 @@ void test_basic_functionality()
 
     // create a bytefluo object to manage access to raw_data
     // let's say the bytes in buf are in big-endian order
-    bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big_endian);
+    bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big);
 
     // note that the bytefluo object, buf, does not contain a copy of
     // raw_data, it merely provides a convenient means to access raw_data
@@ -563,7 +563,7 @@ void test_basic_functionality()
 
     // now rewind buf and tell it to read the data as little-endian
     buf.seek_begin(0);
-    buf.set_byte_arrangement(bytefluo::little_endian);
+    buf.set_byte_order(bytefluo::little);
 
     {
         uint8_type val = 0x12;
@@ -634,7 +634,7 @@ void test_basic_functionality()
         buf_copy >> val;
         TEST_EQUAL(val, 0xBBAA);
 
-        bytefluo buf_assign(0, 0, bytefluo::big_endian);
+        bytefluo buf_assign(0, 0, bytefluo::big);
         TEST_EQUAL(buf_assign.size(), 0);
         buf_assign = buf;
         TEST_EQUAL(buf_assign.size(), sizeof(raw_data));
