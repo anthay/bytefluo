@@ -44,7 +44,7 @@ typedef signed short    int16_type;
 typedef signed int      int32_type;
 
 
-namespace RFC_4122 {
+namespace rfc_4122 {
     
 // more-or-less real-world example, borrowing types from RFC 4122
 
@@ -62,17 +62,17 @@ typedef struct {
     byte        node[6];
 } uuid_t;
 
-}//namespace RFC_4122
+}//namespace rfc_4122
 
 
 // read UUID structure from given bytefluo stream
-RFC_4122::uuid_t read_common(bytefluo & buf)
+rfc_4122::uuid_t read_common(bytefluo & buf)
 {
     // note that this code will read the data in the correct byte order
     // regardless of the natural byte order of this system; also reading
     // the structure one field at a time makes it immune to possible
     // compiler-specific structure packing for machine word alignment
-    RFC_4122::uuid_t result;
+    rfc_4122::uuid_t result;
     buf >> result.time_low
         >> result.time_mid
         >> result.time_hi_and_version
@@ -83,14 +83,14 @@ RFC_4122::uuid_t read_common(bytefluo & buf)
 }
 
 // read big-endian encoded UUID structure from given 16-byte buffer
-RFC_4122::uuid_t uuid_from_16_bytes_big(const unsigned char * bytes)
+rfc_4122::uuid_t uuid_from_16_bytes_big(const unsigned char * bytes)
 {
     bytefluo buf(bytes, bytes + 16, bytefluo::big);
     return read_common(buf);
 }
     
 // read little-endian encoded UUID structure from given 16-byte buffer
-RFC_4122::uuid_t uuid_from_16_bytes_little(const unsigned char * bytes)
+rfc_4122::uuid_t uuid_from_16_bytes_little(const unsigned char * bytes)
 {
     bytefluo buf(bytes, bytes + 16, bytefluo::little);
     return read_common(buf);
@@ -103,7 +103,7 @@ void test_more_or_less_real_world_example()
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
     };
-    using RFC_4122::uuid_t;
+    using rfc_4122::uuid_t;
     
     // first read raw data assuming big-endian byte ordering
     {
@@ -218,7 +218,7 @@ void test_eos()
     const unsigned char raw_data[] = {
         1, 2, 3, 4, 5, 6, 7
     };
-    const long raw_data_len(static_cast<long>(sizeof(raw_data)));
+    const size_t raw_data_len(sizeof(raw_data));
 
     // empty stream
     {
@@ -236,7 +236,7 @@ void test_eos()
     {
         bytefluo buf(raw_data, raw_data + raw_data_len, bytefluo::big);
         // eos() false while cursor not at end of stream
-        for (long i = 0; i != raw_data_len; ++i) {
+        for (size_t i = 0; i != raw_data_len; ++i) {
             TEST_EQUAL(buf.eos(), false);
             uint8_type val;
             buf >> val;
@@ -349,13 +349,13 @@ void test_seek_end()
     const unsigned char raw_data[] = {
         1, 2, 3, 4, 5, 6, 7
     };
-    const long raw_data_len(static_cast<long>(sizeof(raw_data)));
+    const size_t raw_data_len(sizeof(raw_data));
     const uint8_type default_value(42); // value not found in raw_data
     uint8_type val;
 
     // create a bytefluo object to manage access to raw_data
     // let's say the bytes in buf are in big-endian order
-    bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big);
+    bytefluo buf(raw_data, raw_data + raw_data_len, bytefluo::big);
 
     // seek to end of data; seek_end() should return current offset
     TEST_EQUAL(buf.seek_end(0), raw_data_len);
@@ -370,7 +370,8 @@ void test_seek_end()
     TEST_EQUAL(val, 7);
 
     // you can't seek after the end
-    TEST_EXCEPTION(buf.seek_end(-1), bytefluo_exception);
+    TEST_EXCEPTION(buf.seek_end(static_cast<size_t>(-1)),
+        bytefluo_exception);
 
     // and you can't seek before the beginning
     TEST_EXCEPTION(buf.seek_end(raw_data_len + 1), bytefluo_exception);
@@ -396,7 +397,7 @@ void test_seek_begin()
     const unsigned char raw_data[] = {
         1, 2, 3, 4, 5, 6, 7
     };
-    const long raw_data_len(static_cast<long>(sizeof(raw_data)));
+    const size_t raw_data_len(sizeof(raw_data));
     const uint8_type default_value(42); // value not found in raw_data
     uint8_type val;
 
@@ -420,7 +421,8 @@ void test_seek_begin()
     TEST_EXCEPTION(buf.seek_begin(raw_data_len + 1), bytefluo_exception);
 
     // and you can't seek before the beginning
-    TEST_EXCEPTION(buf.seek_begin(-1), bytefluo_exception);
+    TEST_EXCEPTION(buf.seek_begin(static_cast<size_t>(-1)),
+        bytefluo_exception);
 
     // but you can seek to the beginning and read the byte there
     TEST_EQUAL(buf.seek_begin(0), 0);
@@ -529,6 +531,10 @@ void test_basic_functionality()
     // create a bytefluo object to manage access to raw_data
     // let's say the bytes in buf are in big-endian order
     bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big);
+    // note that we could have achieved the exact same thing like this
+    //   bytefluo buf;
+    //   buf.set_data_range(raw_data, raw_data + sizeof(raw_data));
+    //   buf.set_byte_order(bytefluo::big);
 
     // note that the bytefluo object, buf, does not contain a copy of
     // raw_data, it merely provides a convenient means to access raw_data
@@ -581,6 +587,24 @@ void test_basic_functionality()
         TEST_EQUAL(val, 0xFFEEDDCC);
     }
 
+    // rewind again and test non-scalar read (unaffected by byte order)
+    buf.seek_begin(0);
+    {
+        unsigned char data3[3] = {0};
+        buf.set_byte_order(bytefluo::little).read(data3, 3);
+        TEST_EQUAL(data3[0], 0x99);
+        TEST_EQUAL(data3[1], 0xAA);
+        TEST_EQUAL(data3[2], 0xBB);
+    }
+    {
+        unsigned char data4[4] = {0};
+        buf.set_byte_order(bytefluo::big).read(data4, 4);
+        TEST_EQUAL(data4[0], 0xCC);
+        TEST_EQUAL(data4[1], 0xDD);
+        TEST_EQUAL(data4[2], 0xEE);
+        TEST_EQUAL(data4[3], 0xFF);
+    }
+    
     // we are now at the end of the raw_data; check that attempting
     // to read any further will result in an exception being thrown
     {
@@ -602,7 +626,7 @@ void test_basic_functionality()
     }
 
     // now rewind buf and check it works with signed data too
-    buf.seek_begin(0);
+    buf.set_byte_order(bytefluo::little).seek_begin(0);
     {
         int8_type val(0);
         buf >> val;
@@ -640,6 +664,54 @@ void test_basic_functionality()
         TEST_EQUAL(buf_assign.size(), sizeof(raw_data));
         buf_assign >> val;
         TEST_EQUAL(val, 0xDDCC);
+    }
+
+    // check default constructor
+    {
+        bytefluo b;
+        TEST_EQUAL(b.eos(), true);
+        TEST_EQUAL(b.tellg(), 0);
+        TEST_EQUAL(b.size(), 0);
+        uint8_type val8;
+        TEST_EXCEPTION(b >> val8, bytefluo_exception);
+
+        // now give this object some data to manage
+        b.set_data_range(raw_data, raw_data + sizeof(raw_data));
+        uint16_type val16;
+        b >> val16;
+        TEST_EQUAL(val16, 0x99AA);
+        TEST_EQUAL(b.eos(), false);
+        TEST_EQUAL(b.tellg(), 2);
+        TEST_EQUAL(b.size(), sizeof(raw_data));
+
+        // show that (a) it won't accept end < begin, and
+        // (b) the object is unchanged after throwing the exception
+        TEST_EXCEPTION(
+            b.set_data_range(raw_data + sizeof(raw_data), raw_data),
+            bytefluo_exception);
+        TEST_EQUAL(b.eos(), false);
+        TEST_EQUAL(b.tellg(), 2);
+        TEST_EQUAL(b.size(), sizeof(raw_data));
+        b >> val16;
+        TEST_EQUAL(val16, 0xBBCC);
+    }
+    {
+        // get some raw memory big enough to hold a bytefluo object
+        const size_t s = (sizeof(bytefluo)+sizeof(char *)-1) / sizeof(char *);
+        char * mem[s];
+        // (use an array of pointers so allocated memory should be
+        // correctly aligned for bytefluo, probably)
+        for (size_t i = 0; i < s; ++i)
+            mem[i] = reinterpret_cast<char *>(0xCCCCCCCC + i);
+        // can now create a default-constructed bytefluo object
+        // in memory with known state to test it does initialise itself
+        bytefluo * b = new(mem) bytefluo;
+        TEST_EQUAL(b->eos(), true);
+        TEST_EQUAL(b->tellg(), 0);
+        TEST_EQUAL(b->size(), 0);
+        uint8_type val8;
+        TEST_EXCEPTION(*b >> val8, bytefluo_exception);
+        b->~bytefluo();
     }
 }
 

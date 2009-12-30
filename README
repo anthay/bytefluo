@@ -116,6 +116,9 @@ The important things to know about bytefluo are
    the state of the bytefluo object remains unchanged and the
    bytefluo object throws a bytefluo_exception object, which is
    derived from std::runtime_error.
+ - Assuming that the bytefluo object is managing access to valid
+   memory, we provide either the strong guarantee or the nothrow
+   guarantee for all operations.
  - The bytefluo implementation is entriely within the header file,
    bytefluo.h. To use the class just #include "bytefluo.h".
 
@@ -133,14 +136,28 @@ byte order 'bo'. 'bo' must be one of
  bytefluo::big     most-significant byte has lowest address
  bytefluo::little  least-significant byte has lowest address
 
-Throws bytefluo_exception if begin > end.
+Throws bytefluo_exception if begin > end or if 'bo' is neither big
+nor little.
 
-E.g.
+Example:
  unsigned char foo[99];
  bytefluo buf(foo, foo + sizeof(foo), bytefluo::big);
 
 
-3.2.2  CONSTRUCTION FROM VECTOR
+3.2.2  DEFAULT CONSTRUCTION
+
+ bytefluo()
+
+The bytefluo object will manage access to the empty half open range
+[0, 0), with scalar reads defaulting to big-endian. Throws nothing.
+
+Example:
+ bytefluo buf;
+ size_t siz = buf.size(); // siz = 0
+ bool at_end = buf.eos(); // at_end = true
+
+
+3.2.3  CONSTRUCTION FROM VECTOR
 
  template <class item_type>
  bytefluo bytefluo_from_vector(
@@ -157,14 +174,32 @@ cause the vector to reallocate its buffer) will silently invalidate
 the associated bytefluo object so that attempts to read the vector
 contents via that bytefluo object may cause a CRASH.
 
-E.g.
+Example:
  std::vector<unsigned char> vec(99);
  bytefluo buf(bytefluo_from_vector(vec, bytefluo::big));
 
 
-3.2.3  SET BYTE ORDER
+3.2.4  SET DATA RANGE
 
- void set_byte_order(byte_order bo)
+ bytefluo & set_data_range(const void * begin, const void * end)
+
+The bytefluo object will manage access to the bytes in the half open
+range [begin, end). Throws bytefluo_exception if begin > end.
+
+The cursor is set to the beginning of the range. The current
+byte-order setting is unaffected. Returns *this.
+
+Example:
+ bytefluo buf;
+ size_t siz = buf.size(); // siz = 0
+ unsigned char foo[99];
+ buf.set_data_range(foo, foo + sizeof(foo));
+ siz = buf.size(); // siz = 99
+
+
+3.2.5  SET BYTE ORDER
+
+ bytefluo & set_byte_order(byte_order bo)
 
 Specify the byte arrangement to be used on subsequent scalar reads.
 'bo' must be one of
@@ -172,12 +207,15 @@ Specify the byte arrangement to be used on subsequent scalar reads.
  bytefluo::big     most-significant byte has lowest address
  bytefluo::little  least-significant byte has lowest address
 
-E.g.
+Throws bytefluo_exception if 'bo' is neither big nor little. The
+current data range and cursor position are unaffected. Returns *this.
+
+Example:
  bytefluo buf(...);
  buf.set_byte_order(bytefluo::big);
 
 
-3.2.4  READ INTEGER SCALAR
+3.2.6  READ INTEGER SCALAR
 
  template <typename scalar_type>
  bytefluo & operator>>(scalar_type & out)
@@ -185,34 +223,40 @@ E.g.
 Read an integer scalar value from buffer at current cursor position.
 The scalar is read assuming the byte order set at construction or
 at the last call to set_byte_order(). The cursor is advanced by the
-size of the scalar read.
+size of the scalar read. Returns *this.
 
-E.g.
+Throws bytefluo_exception if the read would move the cursor after
+the end of the managed data range.
+
+Example:
  bytefluo buf(...);
  unsigned short foo, bar;
  buf >> foo >> bar;  // read two successive shorts, foo followed by bar
 
 
-3.2.5  READ ARBITRARY NUMBER OF BYTES
+3.2.7  READ ARBITRARY NUMBER OF BYTES
 
- void read(void * dest, size_t len)
+ bytefluo & read(void * dest, size_t len)
 
 Copy 'len' bytes from buffer at current cursor position to given
 'dest' location. The cursor is advanced by the number of bytes
 copied. The current byte order setting has no affect on this
-operation.
+operation. Returns *this.
 
-E.g.
+Throws bytefluo_exception if the read would move the cursor after
+the end of the managed data range.
+
+Example:
  bytefluo buf(...);
  unsigned char foo[23];
  buf.read(foo, sizeof(foo));
 
 
-3.2.6  MOVE THE CURSOR
+3.2.8  MOVE THE CURSOR
 
- long seek_begin(long pos)
- long seek_current(long pos)
- long seek_end(long pos)
+ size_t seek_begin(size_t pos)
+ size_t seek_current(long pos)
+ size_t seek_end(size_t pos)
 
 These functions move the cursor 'pos' bytes from stream beginning,
 the current cursor location and the stream end respectively. They
@@ -221,43 +265,47 @@ seek_begin() and seek_end() require pos to be positive; seek_current()
 may have a positive (move cursor toward end) or negative (move cursor
 toward begin) actual parameter.
 
-E.g.
+Throws bytefluo_exception if the move would put the cursor before
+the beginning or after the end of the managed data range.
+
+Example:
  bytefluo buf(...);
- long pos = buf.seek_end(3);  // cursor is 3 bytes from buffer end
+ size_t pos = buf.seek_end(3);  // cursor is 3 bytes from buffer end
 
 
-3.2.7  TEST FOR END OF STREAM
+3.2.9  TEST FOR END OF STREAM
 
  bool eos() const
 
-Return true if and only if the cursor is at the end of the stream.
+Returns true if and only if the cursor is at the end of the stream.
+Throws nothing.
 
-E.g.
+Example:
  bytefluo buf(...);
  buf.seek_end(0);
  bool at_end = buf.eos();  // at_end = true
 
 
-3.2.8  STREAM SIZE
+3.2.10  GET STREAM SIZE
 
  size_t size() const
 
-Return the number of bytes in the stream.
+Returns the number of bytes in the stream. Throws nothing.
 
-E.g.
+Example:
  std::vector<unsigned char> v(99);
  bytefluo buf(bytefluo_from_vector(v, bytefluo::big));
  size_t siz = buf.size(); // siz = 99
 
 
-3.2.9  CURSOR POSITION
+3.2.11  GET CURSOR POSITION
 
  size_t tellg() const
 
-Return the distance from the buffer start to the current cursor
-location.
+Returns the distance from the buffer start to the current cursor
+location. Throws nothing.
 
-E.g.
+Example:
  bytefluo buf(...);
  buf.seek_begin(13);
  buf.seek_current(-3);
@@ -274,5 +322,5 @@ E.g.
 5  AUTHOR
 
  Anthony C. Hay
- May 2009
+ December 2009
  anthony.hay.1@gmail.com

@@ -38,7 +38,14 @@ public:
         little // little e.: assume least-significant byte has lowest address
     };
 
+    // default to empty range [0, 0), big-endian
+    bytefluo()
+    : buf_begin(0), buf_end(0), cursor(0), buf_byte_order(big)
+    {
+    }
+    
     // bytefluo will manage access to bytes in [begin, end)
+    // and scalar reads will assume given byte order 'bo'
     bytefluo(
         const void * begin,
         const void * end,
@@ -52,12 +59,24 @@ public:
             throw bytefluo_exception("bytefluo: end precedes begin");
     }
 
+    // bytefluo will manage access to bytes in [begin, end)
+    bytefluo & set_data_range(const void * begin, const void * end)
+    {
+        if (end < begin)
+            throw bytefluo_exception("bytefluo: end precedes begin");
+        cursor    =
+        buf_begin = static_cast<const unsigned char *>(begin);
+        buf_end   = static_cast<const unsigned char *>(end);
+        return *this;
+    }
+    
     // specify the byte order to be used on subsequent scalar reads
-    void set_byte_order(byte_order bo)
+    bytefluo & set_byte_order(byte_order bo)
     {
         if (bo != big && bo != little)
             throw bytefluo_exception("bytefluo: invalid byte order");
         buf_byte_order = bo;
+        return *this;
     }
 
     // read an integer scalar value from buffer at current cursor position
@@ -95,29 +114,30 @@ public:
 
     // copy 'len' bytes from buffer at current cursor position to given 'dest'
     // note that current buf_byte_order has no affect on this operation
-    void read(void * dest, size_t len)
+    bytefluo & read(void * dest, size_t len)
     {
         if (buf_end - cursor < static_cast<ptrdiff_t>(len))
             throw bytefluo_exception(
                 "bytefluo: attempt to read past end of data");
         ::memcpy(dest, cursor, len);
         cursor += len;
+        return *this;
     }
 
     // move cursor 'pos' bytes from stream beginning
-    long seek_begin(long pos)
+    size_t seek_begin(size_t pos)
     {
         return seeker(buf_begin + pos);
     }
 
     // move cursor 'pos' bytes from current position
-    long seek_current(long pos)
+    size_t seek_current(long pos)
     {
         return seeker(cursor + pos);
     }
 
     // move cursor 'pos' bytes from stream end
-    long seek_end(long pos)
+    size_t seek_end(size_t pos)
     {
         return seeker(buf_end - pos);
     }
@@ -148,7 +168,7 @@ private:
 
     // set cursor to given 'new_cursor' iff 'new_cursor' is within buffer;
     // throw if not within buffer; return distance from buffer start to cursor
-    long seeker(const unsigned char * new_cursor)
+    size_t seeker(const unsigned char * new_cursor)
     {
         if (new_cursor < buf_begin)
             throw bytefluo_exception(
@@ -157,7 +177,7 @@ private:
             throw bytefluo_exception(
                 "bytefluo: attempt to seek after end of data");
         cursor = new_cursor;
-        return static_cast<long>(cursor - buf_begin);
+        return static_cast<size_t>(cursor - buf_begin);
     }
 };
 
