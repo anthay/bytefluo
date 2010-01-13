@@ -1,5 +1,5 @@
 /*  bytefluo unit test
-    Copyright (c) 2008,2009 Anthony C. Hay
+    Copyright (c) 2008,2009,2010 Anthony C. Hay
     Distributed under the BSD license, see:
     http://creativecommons.org/licenses/BSD/ */
 
@@ -14,11 +14,11 @@ unsigned g_fault_count;     // count of number of unit tests that fail
 // write a message to std::cout if value != expected_value
 #define TEST_EQUAL(value, expected_value)               \
     ++g_test_count;                                     \
-    if (value != expected_value) {                      \
+    if ((value) != (expected_value)) {                  \
         std::cout                                       \
             << __FILE__ << '(' << __LINE__ << ") : "    \
-            << " expected " << expected_value           \
-            << ", got " << value                        \
+            << " expected " << (expected_value)         \
+            << ", got " << (value)                      \
             << '\n';                                    \
         ++g_fault_count;                                \
     }
@@ -142,6 +142,16 @@ void test_ctor_exceptions()
     // invalid stream where end precedes begin - exception expected
     TEST_EXCEPTION(
         bytefluo(raw_data, raw_data - 1, bytefluo::big),
+        bytefluo_exception);
+    
+    // invalid begin - exception expected
+    TEST_EXCEPTION(
+        bytefluo(0, raw_data, bytefluo::big),
+        bytefluo_exception);
+    
+    // invalid end - exception expected
+    TEST_EXCEPTION(
+        bytefluo(raw_data, 0, bytefluo::big),
         bytefluo_exception);
     
     // another valid stream
@@ -340,6 +350,12 @@ void test_seek_current()
     TEST_EQUAL(val, 5);
     TEST_EQUAL(buf.seek_current(0), 5);
     TEST_EQUAL(buf.tellg(), 5);
+
+    // you can't seek if the object is not not yet managing real data
+    {
+        bytefluo b;
+        TEST_EXCEPTION(b.seek_current(1), bytefluo_exception);
+    }
 }
 
 
@@ -388,6 +404,12 @@ void test_seek_end()
     val = default_value;
     buf >> val;
     TEST_EQUAL(val, 5);
+    
+    // you can't seek if the object is not not yet managing real data
+    {
+        bytefluo b;
+        TEST_EXCEPTION(b.seek_end(1), bytefluo_exception);
+    }
 }
 
 
@@ -437,6 +459,12 @@ void test_seek_begin()
     val = default_value;
     buf >> val;
     TEST_EQUAL(val, 4);
+    
+    // you can't seek if the object is not not yet managing real data
+    {
+        bytefluo b;
+        TEST_EXCEPTION(b.seek_begin(1), bytefluo_exception);
+    }
 }
 
 

@@ -2,7 +2,7 @@
 #define BYTEFLUO_H_INCLUDED
 
 /*  bytefluo
-    Copyright (c) 2008,2009 Anthony C. Hay
+    Copyright (c) 2008,2009,2010 Anthony C. Hay
     Distributed under the BSD license, see:
     http://creativecommons.org/licenses/BSD/
 
@@ -52,11 +52,15 @@ public:
         byte_order bo)
     : buf_begin(static_cast<const unsigned char *>(begin)),
       buf_end  (static_cast<const unsigned char *>(end)),
-      cursor   (static_cast<const unsigned char *>(begin))
+      cursor   (static_cast<const unsigned char *>(begin)),
+      buf_byte_order(bo)
     {
-        set_byte_order(bo);
         if (buf_end < buf_begin)
             throw bytefluo_exception("bytefluo: end precedes begin");
+        if (buf_begin == 0 && buf_end != 0)
+            throw bytefluo_exception("bytefluo: begin is 0, end isn't");
+        if (buf_byte_order != big && buf_byte_order != little)
+            throw bytefluo_exception("bytefluo: invalid byte order");
     }
 
     // bytefluo will manage access to bytes in [begin, end)
@@ -64,6 +68,8 @@ public:
     {
         if (end < begin)
             throw bytefluo_exception("bytefluo: end precedes begin");
+        if (begin == 0 && end != 0)
+            throw bytefluo_exception("bytefluo: begin is 0, end isn't");
         cursor    =
         buf_begin = static_cast<const unsigned char *>(begin);
         buf_end   = static_cast<const unsigned char *>(end);
