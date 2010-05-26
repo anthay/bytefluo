@@ -6,6 +6,7 @@
 #include "bytefluo.h"
 
 #include <iostream>
+#include <climits>
 
 
 unsigned g_test_count;      // count of number of unit tests executed
@@ -29,13 +30,15 @@ unsigned g_fault_count;     // count of number of unit tests that fail
         try {                                           \
             expression;                                 \
         }                                               \
-        catch (const exception_expected &) {            \
+        catch (const bytefluo_exception & e) {          \
             got_exception = true;                       \
+            TEST_EQUAL(e.id(), exception_expected);     \
         }                                               \
         TEST_EQUAL(got_exception, true);                \
     }                                                   \
 
 
+// may need to change these definitions on some platforms
 typedef unsigned char   uint8_type;
 typedef unsigned short  uint16_type;
 typedef unsigned int    uint32_type;
@@ -43,23 +46,33 @@ typedef signed char     int8_type;
 typedef signed short    int16_type;
 typedef signed int      int32_type;
 
-
+// check system assumptions
+void test_assumptions()
+{
+    // if any of these fail you'll need to change the typedefs above
+    
+    TEST_EQUAL(sizeof(uint8_type)  * CHAR_BIT, 8);
+    TEST_EQUAL(sizeof(uint16_type) * CHAR_BIT, 16);
+    TEST_EQUAL(sizeof(uint32_type) * CHAR_BIT, 32);
+    
+    TEST_EQUAL(sizeof(int8_type)   * CHAR_BIT, 8);
+    TEST_EQUAL(sizeof(int16_type)  * CHAR_BIT, 16);
+    TEST_EQUAL(sizeof(int32_type)  * CHAR_BIT, 32);
+}
+               
+               
+               
 namespace rfc_4122 {
     
-// more-or-less real-world example, borrowing types from RFC 4122
+// more-or-less real-world example, borrowing uuid_t type from RFC 4122
 
-typedef unsigned long   unsigned32;
-typedef unsigned short  unsigned16;
-typedef unsigned char   unsigned8;
-typedef unsigned char   byte;
-    
 typedef struct {
-    unsigned32  time_low;
-    unsigned16  time_mid;
-    unsigned16  time_hi_and_version;
-    unsigned8   clock_seq_hi_and_reserved;
-    unsigned8   clock_seq_low;
-    byte        node[6];
+    uint32_type  time_low;
+    uint16_type  time_mid;
+    uint16_type  time_hi_and_version;
+    uint8_type   clock_seq_hi_and_reserved;
+    uint8_type   clock_seq_low;
+    uint8_type   node[6];
 } uuid_t;
 
 }//namespace rfc_4122
@@ -83,14 +96,14 @@ rfc_4122::uuid_t read_common(bytefluo & buf)
 }
 
 // read big-endian encoded UUID structure from given 16-byte buffer
-rfc_4122::uuid_t uuid_from_16_bytes_big(const unsigned char * bytes)
+rfc_4122::uuid_t uuid_from_16_bytes_big(const uint8_type * bytes)
 {
     bytefluo buf(bytes, bytes + 16, bytefluo::big);
     return read_common(buf);
 }
     
 // read little-endian encoded UUID structure from given 16-byte buffer
-rfc_4122::uuid_t uuid_from_16_bytes_little(const unsigned char * bytes)
+rfc_4122::uuid_t uuid_from_16_bytes_little(const uint8_type * bytes)
 {
     bytefluo buf(bytes, bytes + 16, bytefluo::little);
     return read_common(buf);
@@ -99,7 +112,7 @@ rfc_4122::uuid_t uuid_from_16_bytes_little(const unsigned char * bytes)
 void test_more_or_less_real_world_example()
 {
     // let's say you wanted to read a UUID encoded in 16 contiguous bytes...
-    const unsigned char bytes[16] = {
+    const uint8_type bytes[16] = {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
     };
@@ -131,7 +144,7 @@ void test_more_or_less_real_world_example()
 
 void test_ctor_exceptions()
 {
-    const unsigned char raw_data[] = {
+    const uint8_type raw_data[] = {
         1, 2, 3, 4, 5, 6, 7
     };
     
@@ -142,17 +155,17 @@ void test_ctor_exceptions()
     // invalid stream where end precedes begin - exception expected
     TEST_EXCEPTION(
         bytefluo(raw_data, raw_data - 1, bytefluo::big),
-        bytefluo_exception);
+        bytefluo_exception::end_precedes_begin);
     
     // invalid begin - exception expected
     TEST_EXCEPTION(
         bytefluo(0, raw_data, bytefluo::big),
-        bytefluo_exception);
+        bytefluo_exception::null_begin_non_null_end);
     
     // invalid end - exception expected
     TEST_EXCEPTION(
         bytefluo(raw_data, 0, bytefluo::big),
-        bytefluo_exception);
+        bytefluo_exception::null_end_non_null_begin);
     
     // another valid stream
     bytefluo(raw_data, raw_data + 1, bytefluo::little);
@@ -160,7 +173,7 @@ void test_ctor_exceptions()
     // invalid byte order specified - exception expected
     TEST_EXCEPTION(
         bytefluo(raw_data, raw_data + 1, (bytefluo::byte_order)99),
-        bytefluo_exception);
+        bytefluo_exception::invalid_byte_order);
     
     // (also test set_byte_order here)
     bytefluo buf(raw_data, raw_data, bytefluo::big);
@@ -172,14 +185,14 @@ void test_ctor_exceptions()
     // invalid byte order specified - exception expected
     TEST_EXCEPTION(
         buf.set_byte_order((bytefluo::byte_order)12345),
-        bytefluo_exception);
+        bytefluo_exception::invalid_byte_order);
 }
 
 
 void test_assignment()
 {
     // raw_data is some arbitrary array of bytes
-    const unsigned char raw_data[7] = {
+    const uint8_type raw_data[7] = {
         0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
     };
     bytefluo buf1(raw_data, raw_data + sizeof(raw_data), bytefluo::big);
@@ -225,7 +238,7 @@ void test_assignment()
 void test_eos()
 {
     // raw_data is some arbitrary array of bytes
-    const unsigned char raw_data[] = {
+    const uint8_type raw_data[] = {
         1, 2, 3, 4, 5, 6, 7
     };
     const size_t raw_data_len(sizeof(raw_data));
@@ -260,7 +273,7 @@ void test_eos()
 void test_size()
 {
     // raw_data is some arbitrary array of bytes
-    const unsigned char raw_data[] = {
+    const uint8_type raw_data[] = {
         1, 2, 3, 4, 5, 6, 7
     };
     const size_t raw_data_len(sizeof(raw_data));
@@ -289,7 +302,8 @@ void test_size()
     }
     // invalid stream where end precedes begin
     {
-        TEST_EXCEPTION(bytefluo(raw_data, raw_data - 1, bytefluo::big), bytefluo_exception);
+        TEST_EXCEPTION(bytefluo(raw_data, raw_data - 1, bytefluo::big),
+            bytefluo_exception::end_precedes_begin);
     }
 }
 
@@ -297,7 +311,7 @@ void test_size()
 void test_seek_current()
 {
     // raw_data is some arbitrary array of bytes
-    const unsigned char raw_data[] = {
+    const uint8_type raw_data[] = {
         1, 2, 3, 4, 5, 6, 7
     };
     const long raw_data_len(static_cast<long>(sizeof(raw_data)));
@@ -309,11 +323,12 @@ void test_seek_current()
     bytefluo buf(raw_data, raw_data + sizeof(raw_data), bytefluo::big);
 
     // seek to end of data; seek_current() should return current offset
-    TEST_EQUAL(buf.seek_current(raw_data_len), raw_data_len);
+    TEST_EQUAL(buf.seek_current(raw_data_len), static_cast<size_t>(raw_data_len));
     TEST_EQUAL(buf.tellg(), static_cast<size_t>(raw_data_len));
 
     // should get exception if we now attempt to read
-    TEST_EXCEPTION(buf >> val, bytefluo_exception);
+    TEST_EXCEPTION(buf >> val,
+        bytefluo_exception::attempt_to_read_past_end);
 
     // seek to last byte of data and read it
     TEST_EQUAL(buf.seek_current(-1), raw_data_len - 1);
@@ -322,17 +337,19 @@ void test_seek_current()
     TEST_EQUAL(val, 7);
 
     // seek_current(0) gives you the current cursor position without moving it
-    TEST_EQUAL(buf.seek_current(0), raw_data_len);
+    TEST_EQUAL(buf.seek_current(0), static_cast<size_t>(raw_data_len));
     // or you could just use tellg(), which also gives the current cursor pos
     TEST_EQUAL(buf.tellg(), static_cast<size_t>(raw_data_len));
 
     // you can't seek after the end
-    TEST_EXCEPTION(buf.seek_current(1), bytefluo_exception);
-    TEST_EQUAL(buf.seek_current(0), raw_data_len);
+    TEST_EXCEPTION(buf.seek_current(1),
+        bytefluo_exception::attempt_to_seek_after_end);
+    TEST_EQUAL(buf.seek_current(0), static_cast<size_t>(raw_data_len));
 
     // and you can't seek before the beginning
-    TEST_EXCEPTION(buf.seek_current(-raw_data_len - 1), bytefluo_exception);
-    TEST_EQUAL(buf.seek_current(0), raw_data_len);
+    TEST_EXCEPTION(buf.seek_current(-raw_data_len - 1),
+        bytefluo_exception::attempt_to_seek_before_beginning);
+    TEST_EQUAL(buf.seek_current(0), static_cast<size_t>(raw_data_len));
 
     // but you can seek to the beginning and read the byte there
     TEST_EQUAL(buf.seek_current(-raw_data_len), 0);
@@ -354,15 +371,26 @@ void test_seek_current()
     // you can't seek if the object is not not yet managing real data
     {
         bytefluo b;
-        TEST_EXCEPTION(b.seek_current(1), bytefluo_exception);
+        TEST_EXCEPTION(b.seek_current(1),
+            bytefluo_exception::attempt_to_seek_after_end);
     }
+
+    // test that very large out-of-range seeks are correctly detected
+    TEST_EXCEPTION(buf.seek_current(LONG_MAX),
+        bytefluo_exception::attempt_to_seek_after_end);
+    TEST_EXCEPTION(buf.seek_current(LONG_MAX/2),
+        bytefluo_exception::attempt_to_seek_after_end);
+    TEST_EXCEPTION(buf.seek_current(LONG_MIN),
+        bytefluo_exception::attempt_to_seek_before_beginning);
+    TEST_EXCEPTION(buf.seek_current(LONG_MIN/2),
+        bytefluo_exception::attempt_to_seek_before_beginning);
 }
 
 
 void test_seek_end()
 {
     // raw_data is some arbitrary array of bytes
-    const unsigned char raw_data[] = {
+    const uint8_type raw_data[] = {
         1, 2, 3, 4, 5, 6, 7
     };
     const size_t raw_data_len(sizeof(raw_data));
@@ -377,7 +405,8 @@ void test_seek_end()
     TEST_EQUAL(buf.seek_end(0), raw_data_len);
 
     // should get exception if we now attempt to read
-    TEST_EXCEPTION(buf >> val, bytefluo_exception);
+    TEST_EXCEPTION(buf >> val,
+        bytefluo_exception::attempt_to_read_past_end);
 
     // seek to last byte of data and read it
     TEST_EQUAL(buf.seek_end(1), raw_data_len - 1);
@@ -387,10 +416,11 @@ void test_seek_end()
 
     // you can't seek after the end
     TEST_EXCEPTION(buf.seek_end(static_cast<size_t>(-1)),
-        bytefluo_exception);
+        bytefluo_exception::attempt_to_seek_before_beginning);
 
     // and you can't seek before the beginning
-    TEST_EXCEPTION(buf.seek_end(raw_data_len + 1), bytefluo_exception);
+    TEST_EXCEPTION(buf.seek_end(raw_data_len + 1),
+        bytefluo_exception::attempt_to_seek_before_beginning);
 
     // but you can seek to the beginning and read the byte there
     TEST_EQUAL(buf.seek_end(raw_data_len), 0);
@@ -408,15 +438,22 @@ void test_seek_end()
     // you can't seek if the object is not not yet managing real data
     {
         bytefluo b;
-        TEST_EXCEPTION(b.seek_end(1), bytefluo_exception);
+        TEST_EXCEPTION(b.seek_end(1),
+            bytefluo_exception::attempt_to_seek_before_beginning);
     }
+
+    // test that very large out-of-range seeks are correctly detected
+    TEST_EXCEPTION(buf.seek_end(ULONG_MAX),
+        bytefluo_exception::attempt_to_seek_before_beginning);
+    TEST_EXCEPTION(buf.seek_end(ULONG_MAX/2),
+        bytefluo_exception::attempt_to_seek_before_beginning);
 }
 
 
 void test_seek_begin()
 {
     // raw_data is some arbitrary array of bytes
-    const unsigned char raw_data[] = {
+    const uint8_type raw_data[] = {
         1, 2, 3, 4, 5, 6, 7
     };
     const size_t raw_data_len(sizeof(raw_data));
@@ -431,7 +468,8 @@ void test_seek_begin()
     TEST_EQUAL(buf.seek_begin(raw_data_len), raw_data_len);
 
     // should get exception if we now attempt to read
-    TEST_EXCEPTION(buf >> val, bytefluo_exception);
+    TEST_EXCEPTION(buf >> val,
+        bytefluo_exception::attempt_to_read_past_end);
 
     // seek to last byte of data and read it
     TEST_EQUAL(buf.seek_begin(raw_data_len - 1), raw_data_len - 1);
@@ -440,11 +478,12 @@ void test_seek_begin()
     TEST_EQUAL(val, 7);
 
     // you can't seek after the end
-    TEST_EXCEPTION(buf.seek_begin(raw_data_len + 1), bytefluo_exception);
+    TEST_EXCEPTION(buf.seek_begin(raw_data_len + 1),
+        bytefluo_exception::attempt_to_seek_after_end);
 
     // and you can't seek before the beginning
     TEST_EXCEPTION(buf.seek_begin(static_cast<size_t>(-1)),
-        bytefluo_exception);
+        bytefluo_exception::attempt_to_seek_after_end);
 
     // but you can seek to the beginning and read the byte there
     TEST_EQUAL(buf.seek_begin(0), 0);
@@ -463,8 +502,15 @@ void test_seek_begin()
     // you can't seek if the object is not not yet managing real data
     {
         bytefluo b;
-        TEST_EXCEPTION(b.seek_begin(1), bytefluo_exception);
+        TEST_EXCEPTION(b.seek_begin(1),
+            bytefluo_exception::attempt_to_seek_after_end);
     }
+    
+    // test that very large out-of-range seeks are correctly detected
+    TEST_EXCEPTION(buf.seek_begin(ULONG_MAX),
+        bytefluo_exception::attempt_to_seek_after_end);
+    TEST_EXCEPTION(buf.seek_begin(ULONG_MAX/2),
+        bytefluo_exception::attempt_to_seek_after_end);
 }
 
 
@@ -477,8 +523,8 @@ void test_basic_vector_functionality()
         TEST_EQUAL(buf.eos(), true);
     }
 
-    std::vector<unsigned char> vec;
-    for (unsigned char i = 1; i < 8; ++i)
+    std::vector<uint8_type> vec;
+    for (uint8_type i = 1; i < 8; ++i)
         vec.push_back(i);
     
     // create a bytefluo object to manage access to the contents of the
@@ -531,7 +577,8 @@ void test_basic_vector_functionality()
     // to read any further will result in an exception being thrown
     {
         uint8_type val;
-        TEST_EXCEPTION(buf >> val, bytefluo_exception);
+        TEST_EXCEPTION(buf >> val,
+            bytefluo_exception::attempt_to_read_past_end);
     }
 
     // if you only need to read a few values you could just use the
@@ -552,7 +599,7 @@ void test_basic_vector_functionality()
 void test_basic_functionality()
 {
     // raw_data is some arbitrary array of bytes
-    const unsigned char raw_data[7] = {
+    const uint8_type raw_data[7] = {
         0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
     };
 
@@ -618,19 +665,19 @@ void test_basic_functionality()
     // rewind again and test non-scalar read (unaffected by byte order)
     buf.seek_begin(0);
     {
-        unsigned char data3[3] = {0};
+        uint8_type data3[3] = {0};
         buf.set_byte_order(bytefluo::little).read(data3, 3);
-        TEST_EQUAL(data3[0], 0x99);
-        TEST_EQUAL(data3[1], 0xAA);
-        TEST_EQUAL(data3[2], 0xBB);
+        TEST_EQUAL(static_cast<unsigned>(data3[0]), 0x99);
+        TEST_EQUAL(static_cast<unsigned>(data3[1]), 0xAA);
+        TEST_EQUAL(static_cast<unsigned>(data3[2]), 0xBB);
     }
     {
-        unsigned char data4[4] = {0};
+        uint8_type data4[4] = {0};
         buf.set_byte_order(bytefluo::big).read(data4, 4);
-        TEST_EQUAL(data4[0], 0xCC);
-        TEST_EQUAL(data4[1], 0xDD);
-        TEST_EQUAL(data4[2], 0xEE);
-        TEST_EQUAL(data4[3], 0xFF);
+        TEST_EQUAL(static_cast<unsigned>(data4[0]), 0xCC);
+        TEST_EQUAL(static_cast<unsigned>(data4[1]), 0xDD);
+        TEST_EQUAL(static_cast<unsigned>(data4[2]), 0xEE);
+        TEST_EQUAL(static_cast<unsigned>(data4[3]), 0xFF);
     }
     
     // we are now at the end of the raw_data; check that attempting
@@ -638,16 +685,28 @@ void test_basic_functionality()
     {
         TEST_EQUAL(buf.eos(), true);
         uint8_type val8;
-        TEST_EXCEPTION(buf >> val8, bytefluo_exception);
-        // the bytefluo buf is still in a well defined usable
-        // state - as if no exception had been thrown - we
+        
+        bool got_exception = false;
+        try {
+            buf >> val8;
+        }
+        catch (const bytefluo_exception & e) {
+            TEST_EQUAL(e.id(), bytefluo_exception::attempt_to_read_past_end);
+            got_exception = true;
+        }
+        TEST_EQUAL(got_exception, true);
+        // from here on we'll use the TEST_EXCEPTION macro to do this
+                   
+        // at this point the bytefluo buf is still in a well defined
+        // usable state - as if no exception had been thrown - we
         // are still sitting at the end of raw_data
         TEST_EQUAL(buf.eos(), true);
 
         buf.seek_end(1);
         uint16_type val16;
         // can't read a 16-bit value when cursor is only 8 bits from buf end
-        TEST_EXCEPTION(buf >> val16, bytefluo_exception);
+        TEST_EXCEPTION(buf >> val16,
+            bytefluo_exception::attempt_to_read_past_end);
         // still at 8 bits from buf end; we can read an 8-bit value
         buf >> val8;
         TEST_EQUAL(val8, 0xFF);
@@ -701,7 +760,8 @@ void test_basic_functionality()
         TEST_EQUAL(b.tellg(), 0);
         TEST_EQUAL(b.size(), 0);
         uint8_type val8;
-        TEST_EXCEPTION(b >> val8, bytefluo_exception);
+        TEST_EXCEPTION(b >> val8,
+            bytefluo_exception::attempt_to_read_past_end);
 
         // now give this object some data to manage
         b.set_data_range(raw_data, raw_data + sizeof(raw_data));
@@ -716,7 +776,7 @@ void test_basic_functionality()
         // (b) the object is unchanged after throwing the exception
         TEST_EXCEPTION(
             b.set_data_range(raw_data + sizeof(raw_data), raw_data),
-            bytefluo_exception);
+            bytefluo_exception::end_precedes_begin);
         TEST_EQUAL(b.eos(), false);
         TEST_EQUAL(b.tellg(), 2);
         TEST_EQUAL(b.size(), sizeof(raw_data));
@@ -738,16 +798,17 @@ void test_basic_functionality()
         TEST_EQUAL(b->tellg(), 0);
         TEST_EQUAL(b->size(), 0);
         uint8_type val8;
-        TEST_EXCEPTION(*b >> val8, bytefluo_exception);
+        TEST_EXCEPTION(*b >> val8,
+            bytefluo_exception::attempt_to_read_past_end);
         b->~bytefluo();
     }
 }
 
 
-
 // bytefluo unit test
 int main()
 {
+    test_assumptions();
     test_basic_functionality();
     test_basic_vector_functionality();
     test_seek_begin();

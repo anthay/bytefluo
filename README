@@ -73,7 +73,7 @@ Windows
 The bytefluo library has been tested by the author under the following
 compilers
 
- - gcc v4.0.1 on OSX
+ - gcc v4.2.1 on OSX
  - Microsoft Visual C++ v7 (2003) on Windows
  - Comeau 4.3.10.1 Beta 2 online in strict C++03 mode
 
@@ -310,6 +310,41 @@ Example:
  buf.seek_begin(13);
  buf.seek_current(-3);
  size_t pos = buf.tellg();  // pos = 10
+
+
+3.2.12 THE EXCEPTIONS
+
+If something goes wrong the bytefluo object will throw a bytefluo_exception
+object. You can catch this via the exception base class with
+
+ catch (const std::runtime_error & e) {
+   std::clog << e.what() << '\n';
+ }
+
+or directly with
+
+ catch (const bytefluo_exception & e) {
+   std::clog << e.what() << '\n';
+ }
+
+If you do the latter you can get access to the bytefluo exception id,
+for example:
+
+ catch (const bytefluo_exception & e) {
+   std::clog << e.what() << '\n';
+   if (e.id() == bytefluo_exception::attempt_to_read_past_end)
+     . . .
+ }
+
+The exception ids and their symbolic names are
+
+ 1 null_begin_non_null_end
+ 2 null_end_non_null_begin
+ 3 end_precedes_begin
+ 4 invalid_byte_order
+ 5 attempt_to_read_past_end
+ 6 attempt_to_seek_after_end
+ 7 attempt_to_seek_before_beginning
 
 
 4  LICENSE

@@ -20,15 +20,31 @@
 // the bytefluo class throws execptions of class bytefluo_exception
 class bytefluo_exception : public std::runtime_error {
 public:
-    explicit bytefluo_exception(const std::string & msg)
-    : std::runtime_error(msg)
+    enum error_id {
+        null_begin_non_null_end             = 1,
+        null_end_non_null_begin             = 2,
+        end_precedes_begin                  = 3,
+        invalid_byte_order                  = 4,
+        attempt_to_read_past_end            = 5,
+        attempt_to_seek_after_end           = 6,
+        attempt_to_seek_before_beginning    = 7,
+    };
+    
+    bytefluo_exception(error_id id, const std::string & msg)
+    : std::runtime_error(msg), id_(id)
     {
     }
 
     virtual ~bytefluo_exception() throw ()
     {
     }
+
+    error_id id() const { return id_; }
+    
+private:
+    error_id id_;
 };
+
 
 // manage specific byte-order read-only access to a given buffer
 class bytefluo {
@@ -55,21 +71,16 @@ public:
       cursor   (static_cast<const unsigned char *>(begin)),
       buf_byte_order(bo)
     {
-        if (buf_end < buf_begin)
-            throw bytefluo_exception("bytefluo: end precedes begin");
-        if (buf_begin == 0 && buf_end != 0)
-            throw bytefluo_exception("bytefluo: begin is 0, end isn't");
+        validate(begin, end);
         if (buf_byte_order != big && buf_byte_order != little)
-            throw bytefluo_exception("bytefluo: invalid byte order");
+            throw bytefluo_exception(bytefluo_exception::invalid_byte_order,
+                "bytefluo: invalid byte order");
     }
 
     // bytefluo will manage access to bytes in [begin, end)
     bytefluo & set_data_range(const void * begin, const void * end)
     {
-        if (end < begin)
-            throw bytefluo_exception("bytefluo: end precedes begin");
-        if (begin == 0 && end != 0)
-            throw bytefluo_exception("bytefluo: begin is 0, end isn't");
+        validate(begin, end);
         cursor    =
         buf_begin = static_cast<const unsigned char *>(begin);
         buf_end   = static_cast<const unsigned char *>(end);
@@ -80,7 +91,8 @@ public:
     bytefluo & set_byte_order(byte_order bo)
     {
         if (bo != big && bo != little)
-            throw bytefluo_exception("bytefluo: invalid byte order");
+            throw bytefluo_exception(bytefluo_exception::invalid_byte_order,
+                "bytefluo: invalid byte order");
         buf_byte_order = bo;
         return *this;
     }
@@ -93,6 +105,7 @@ public:
         const size_t out_size = sizeof(out);
         if (buf_end - cursor < static_cast<ptrdiff_t>(out_size))
             throw bytefluo_exception(
+                bytefluo_exception::attempt_to_read_past_end,
                 "bytefluo: attempt to read past end of data");
         if (buf_byte_order == big) {
             // cursor -> most significant byte
@@ -124,6 +137,7 @@ public:
     {
         if (buf_end - cursor < static_cast<ptrdiff_t>(len))
             throw bytefluo_exception(
+                bytefluo_exception::attempt_to_read_past_end,
                 "bytefluo: attempt to read past end of data");
         ::memcpy(dest, cursor, len);
         cursor += len;
@@ -133,19 +147,42 @@ public:
     // move cursor 'pos' bytes from stream beginning
     size_t seek_begin(size_t pos)
     {
-        return seeker(buf_begin + pos);
+        if (pos > static_cast<size_t>(buf_end - buf_begin))
+            throw bytefluo_exception(
+                bytefluo_exception::attempt_to_seek_after_end,
+                "bytefluo: attempt to seek after end of data");
+        cursor = buf_begin + pos;
+        return static_cast<size_t>(cursor - buf_begin);
     }
 
     // move cursor 'pos' bytes from current position
     size_t seek_current(long pos)
     {
-        return seeker(cursor + pos);
+        if (pos < 0) { // seek backward
+            if (pos < static_cast<long>(buf_begin - cursor))
+                throw bytefluo_exception(
+                    bytefluo_exception::attempt_to_seek_before_beginning,
+                    "bytefluo: attempt to seek before beginning of data");
+        }
+        else { // seek forward (or nowhere)
+            if (pos > static_cast<long>(buf_end - cursor))
+                throw bytefluo_exception(
+                    bytefluo_exception::attempt_to_seek_after_end,
+                    "bytefluo: attempt to seek after end of data");
+        }
+        cursor += pos;
+        return static_cast<size_t>(cursor - buf_begin);
     }
 
     // move cursor 'pos' bytes from stream end
     size_t seek_end(size_t pos)
     {
-        return seeker(buf_end - pos);
+        if (pos > static_cast<size_t>(buf_end - buf_begin))
+            throw bytefluo_exception(
+                bytefluo_exception::attempt_to_seek_before_beginning,
+                "bytefluo: attempt to seek before beginning of data");
+        cursor = buf_end - pos;
+        return static_cast<size_t>(cursor - buf_begin);
     }
 
     // return true iff cursor is at end of stream
@@ -172,18 +209,21 @@ private:
     const unsigned char * cursor;
     byte_order buf_byte_order;
 
-    // set cursor to given 'new_cursor' iff 'new_cursor' is within buffer;
-    // throw if not within buffer; return distance from buffer start to cursor
-    size_t seeker(const unsigned char * new_cursor)
+    // throw an exception if given buffer limits are obviously bad
+    void validate(const void * begin, const void * end)
     {
-        if (new_cursor < buf_begin)
+        if (begin == 0 && end != 0)
             throw bytefluo_exception(
-                "bytefluo: attempt to seek before beginning of data");
-        if (new_cursor > buf_end)
+                bytefluo_exception::null_begin_non_null_end,
+                "bytefluo: begin is 0, end isn't");
+        if (begin != 0 && end == 0)
             throw bytefluo_exception(
-                "bytefluo: attempt to seek after end of data");
-        cursor = new_cursor;
-        return static_cast<size_t>(cursor - buf_begin);
+                bytefluo_exception::null_end_non_null_begin,
+                "bytefluo: end is 0, begin isn't");
+        if (end < begin)
+            throw bytefluo_exception(
+                bytefluo_exception::end_precedes_begin,
+                "bytefluo: end precedes begin");
     }
 };
 
