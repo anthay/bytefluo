@@ -1,5 +1,5 @@
 /*  bytefluo unit test
-    Copyright (c) 2008,2009,2010 Anthony C. Hay
+    Copyright (c) 2008,2009,2010,2016 Anthony C. Hay
     Distributed under the BSD license, see:
     http://creativecommons.org/licenses/BSD/ */
 
@@ -7,8 +7,10 @@
 
 #include <iostream>
 #include <climits>
-#include <cstdint>
+#include <chrono>
 
+
+namespace {
 
 unsigned g_test_count;      // count of number of unit tests executed
 unsigned g_fault_count;     // count of number of unit tests that fail
@@ -38,6 +40,47 @@ unsigned g_fault_count;     // count of number of unit tests that fail
         TEST_EQUAL(got_exception, true);                \
     }                                                   \
 
+
+class timer {
+public:
+    timer() : running_(true), start_time(std::chrono::high_resolution_clock::now()) {}
+
+    void reset()
+    {
+        start_time = std::chrono::high_resolution_clock::now();
+        running_ = true;
+    }
+
+    void stop()
+    {
+        stop_time = std::chrono::high_resolution_clock::now();
+        running_ = false;
+    }
+
+    double elapsed_seconds()
+    {
+        using namespace std::chrono;
+        return running_
+            ? duration_cast<duration<double>>(high_resolution_clock::now() - start_time).count()
+            : duration_cast<duration<double>>(stop_time - start_time).count();
+    }
+
+    uint64_t elapsed_ms()
+    {
+        using namespace std::chrono;
+        return running_
+            ? duration_cast<milliseconds>(high_resolution_clock::now() - start_time).count()
+            : duration_cast<milliseconds>(stop_time - start_time).count();
+    }
+
+private:
+    bool running_;
+    std::chrono::high_resolution_clock::time_point start_time;
+    std::chrono::high_resolution_clock::time_point stop_time;
+};
+
+
+}
 
 namespace rfc_4122 {
     
@@ -131,7 +174,7 @@ void test_ctor_exceptions()
     
     // invalid stream where end precedes begin - exception expected
     TEST_EXCEPTION(
-        bytefluo(raw_data, raw_data - 1, bytefluo::big),
+        bytefluo(raw_data + 1, raw_data, bytefluo::big),
         bytefluo_exception::end_precedes_begin);
     
     // invalid begin - exception expected
@@ -279,7 +322,7 @@ void test_size()
     }
     // invalid stream where end precedes begin
     {
-        TEST_EXCEPTION(bytefluo(raw_data, raw_data - 1, bytefluo::big),
+        TEST_EXCEPTION(bytefluo(raw_data + 1, raw_data, bytefluo::big),
             bytefluo_exception::end_precedes_begin);
     }
     // stream constructed from empty vector
@@ -821,6 +864,176 @@ void test_basic_functionality()
             bytefluo_exception::attempt_to_read_past_end);
         b->~bytefluo();
     }
+
+    // test 64-bit reads
+    {
+        const uint8_t bytes[] = {
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+        };
+        bytefluo b(bytes, bytes + sizeof(bytes), bytefluo::big);
+        uint64_t val64;
+
+        b >> val64;
+        TEST_EQUAL(val64, 0x0102030405060708ull);
+        TEST_EQUAL(b.tellg(), 8);
+        b >> val64;
+        TEST_EQUAL(val64, 0x090A0B0C0D0E0F10ull);
+        TEST_EQUAL(b.tellg(), 16);
+
+        TEST_EXCEPTION(b >> val64, bytefluo_exception::attempt_to_read_past_end);
+
+        b.seek_begin(1);
+        b >> val64;
+        TEST_EQUAL(val64, 0x0203040506070809ull);
+        TEST_EQUAL(b.tellg(), 9);
+
+        b.set_byte_order(bytefluo::little).seek_begin(1);
+        b >> val64;
+        TEST_EQUAL(val64, 0x0908070605040302ull);
+        TEST_EQUAL(b.tellg(), 9);
+    }
+}
+
+
+void test_performance()
+{
+    // some of what follows may look weird - it's an attempt to stop
+    // the compiler optimising away the test code
+
+    timer t;
+    const int best_of_attempts = 5; // report only the best time seen
+    const int repeats = 1000; // repeat inner loop this many times
+    const size_t bytes_len = 1024 * 1024;
+    uint64_t best_read_ms;
+
+    // test 8-bit reads
+    best_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (int b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len);
+        uint16_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint8_t v;
+                b >> v;
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "thank you for your patience\n";
+
+        if (ms < best_read_ms)
+            best_read_ms = ms;
+    }
+    std::cout
+        << "read " << (repeats * bytes_len) / (1024 * 1024)
+        << " MiB in 8-bit chunks in " << best_read_ms << " ms\n";
+
+    // test 16-bit reads
+    best_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (int b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len / 2);
+        uint16_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint16_t v;
+                b >> v;
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "thank you for your patience\n";
+
+        if (ms < best_read_ms)
+            best_read_ms = ms;
+    }
+    std::cout
+        << "read " << (repeats * bytes_len) / (1024 * 1024)
+        << " MiB in 16-bit chunks in " << best_read_ms << " ms\n";
+
+    // test 32-bit reads
+    best_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (int b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len / 4);
+        uint32_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint32_t v;
+                b >> v;
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "thank you for your patience\n";
+
+        if (ms < best_read_ms)
+            best_read_ms = ms;
+    }
+    std::cout
+        << "read " << (repeats * bytes_len) / (1024 * 1024)
+        << " MiB in 32-bit chunks in " << best_read_ms << " ms\n";
+
+    // test 64-bit reads
+    best_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (int b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len / 8);
+        uint64_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint64_t v;
+                b >> v;
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "thank you for your patience\n";
+
+        if (ms < best_read_ms)
+            best_read_ms = ms;
+    }
+    std::cout
+        << "read " << (repeats * bytes_len) / (1024 * 1024)
+        << " MiB in 64-bit chunks in " << best_read_ms << " ms\n";
 }
 
 
@@ -840,7 +1053,10 @@ int main()
 
     std::cout << "tests executed " << g_test_count;
     std::cout << ", tests failed " << g_fault_count << '\n';
-	return g_fault_count ? EXIT_FAILURE : EXIT_SUCCESS;
+
+    //test_performance(); // uncomment to get some feel for performance
+
+    return g_fault_count ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 // "Those who play with bytes will get bytten." - Jon Bentley
 

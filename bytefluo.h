@@ -2,7 +2,7 @@
 #define BYTEFLUO_H_INCLUDED
 
 /*  bytefluo
-    Copyright (c) 2008,2009,2010 Anthony C. Hay
+    Copyright (c) 2008,2009,2010,2016 Anthony C. Hay
     Distributed under the BSD license, see:
     http://creativecommons.org/licenses/BSD/
 
@@ -16,6 +16,7 @@
 #include <climits>
 #include <cstring>
 #include <vector>
+#include <cstdint>
 
 // the bytefluo class throws execptions of class bytefluo_exception
 class bytefluo_exception : public std::runtime_error {
@@ -30,7 +31,7 @@ public:
         attempt_to_seek_before_beginning    = 7,
     };
     
-    bytefluo_exception(error_id id, const std::string & msg)
+    bytefluo_exception(error_id id, const char * msg)
     : std::runtime_error(msg), id_(id)
     {
     }
@@ -54,6 +55,128 @@ public:
         little // little e.: assume least-significant byte has lowest address
     };
 
+private:
+    // impl provides compile-time selection of scalar size
+    template <typename scalar_type, size_t sizeof_out>
+    struct impl; // leave undefined; all supported scalar sizes are specialisations
+
+    template <typename scalar_type>
+    struct impl<scalar_type, 1> {
+        // read one 8-bit value at the current cursor location; byte order is irrelevant
+        static inline void read(scalar_type & out, const uint8_t *& cursor,
+            const uint8_t * const buf_end, byte_order)
+        {
+            if (buf_end - cursor < 1)
+                throw bytefluo_exception(
+                    bytefluo_exception::attempt_to_read_past_end,
+                    "bytefluo: attempt to read past end of data");
+
+            out = scalar_type(*cursor++);
+        }
+    };
+
+    template <typename scalar_type>
+    struct impl<scalar_type, 2> {
+        // read one 16-bit value at the current cursor location
+        static inline void read(scalar_type & out, const uint8_t *& cursor,
+            const uint8_t * const buf_end, byte_order buf_byte_order)
+        {
+            if (buf_end - cursor < 2)
+                throw bytefluo_exception(
+                    bytefluo_exception::attempt_to_read_past_end,
+                    "bytefluo: attempt to read past end of data");
+
+            if (buf_byte_order == little) {
+                // cursor -> least significant byte
+                out = scalar_type(uint16_t(cursor[1]) << CHAR_BIT | uint16_t(cursor[0]));
+            }
+            else {
+                // cursor -> most significant byte
+                out = scalar_type(uint16_t(cursor[0]) << CHAR_BIT | uint16_t(cursor[1]));
+            }
+
+            cursor += 2;
+        }
+    };
+
+    template <typename scalar_type>
+    struct impl<scalar_type, 4> {
+        // read one 32-bit value at the current cursor location
+        static inline void read(scalar_type & out, const uint8_t *& cursor,
+            const uint8_t * const buf_end, byte_order buf_byte_order)
+        {
+            if (buf_end - cursor < 4)
+                throw bytefluo_exception(
+                    bytefluo_exception::attempt_to_read_past_end,
+                    "bytefluo: attempt to read past end of data");
+
+            if (buf_byte_order == little) {
+                // cursor -> least significant byte
+                auto o3 = uint32_t(cursor[3]) << CHAR_BIT * 3;
+                auto o2 = uint32_t(cursor[2]) << CHAR_BIT * 2;
+                auto o1 = uint32_t(cursor[1]) << CHAR_BIT;
+                auto o0 = uint32_t(cursor[0]);
+                out = scalar_type(o3 | o2 | o1 | o0);
+            }
+            else {
+                // cursor -> most significant byte
+                auto o3 = uint32_t(cursor[0]) << CHAR_BIT * 3;
+                auto o2 = uint32_t(cursor[1]) << CHAR_BIT * 2;
+                auto o1 = uint32_t(cursor[2]) << CHAR_BIT;
+                auto o0 = uint32_t(cursor[3]);
+                out = scalar_type(o3 | o2 | o1 | o0);
+            }
+
+            cursor += 4;
+        }
+    };
+
+    template <typename scalar_type>
+    struct impl<scalar_type, 8> {
+        // read one 64-bit value at the current cursor location
+        static inline void read(scalar_type & out, const uint8_t *& cursor,
+            const uint8_t * const buf_end, byte_order buf_byte_order)
+        {
+            if (buf_end - cursor < 8)
+                throw bytefluo_exception(
+                    bytefluo_exception::attempt_to_read_past_end,
+                    "bytefluo: attempt to read past end of data");
+
+            if (buf_byte_order == little) {
+                // cursor -> least significant byte
+                auto h3 = uint32_t(cursor[7]) << CHAR_BIT * 3;
+                auto h2 = uint32_t(cursor[6]) << CHAR_BIT * 2;
+                auto h1 = uint32_t(cursor[5]) << CHAR_BIT;
+                auto h0 = uint32_t(cursor[4]);
+                auto h = h3 | h2 | h1 | h0;
+                auto l3 = uint32_t(cursor[3]) << CHAR_BIT * 3;
+                auto l2 = uint32_t(cursor[2]) << CHAR_BIT * 2;
+                auto l1 = uint32_t(cursor[1]) << CHAR_BIT;
+                auto l0 = uint32_t(cursor[0]);
+                auto l = l3 | l2 | l1 | l0;
+                out = scalar_type(uint64_t(h) << CHAR_BIT * 4 | uint64_t(l));
+            }
+            else {
+                // cursor -> most significant byte
+                auto h3 = uint32_t(cursor[0]) << CHAR_BIT * 3;
+                auto h2 = uint32_t(cursor[1]) << CHAR_BIT * 2;
+                auto h1 = uint32_t(cursor[2]) << CHAR_BIT;
+                auto h0 = uint32_t(cursor[3]);
+                auto h = h3 | h2 | h1 | h0;
+                auto l3 = uint32_t(cursor[4]) << CHAR_BIT * 3;
+                auto l2 = uint32_t(cursor[5]) << CHAR_BIT * 2;
+                auto l1 = uint32_t(cursor[6]) << CHAR_BIT;
+                auto l0 = uint32_t(cursor[7]);
+                auto l = l3 | l2 | l1 | l0;
+                out = scalar_type(uint64_t(h) << CHAR_BIT * 4 | uint64_t(l));
+            }
+
+            cursor += 8;
+        }
+    };
+
+
+public:
     // default to empty range [0, 0), big-endian
     bytefluo()
     : buf_begin(0), buf_end(0), cursor(0), buf_byte_order(big)
@@ -66,9 +189,9 @@ public:
         const void * begin,
         const void * end,
         byte_order bo)
-    : buf_begin(static_cast<const unsigned char *>(begin)),
-      buf_end  (static_cast<const unsigned char *>(end)),
-      cursor   (static_cast<const unsigned char *>(begin)),
+    : buf_begin(static_cast<const uint8_t *>(begin)),
+      buf_end  (static_cast<const uint8_t *>(end)),
+      cursor   (static_cast<const uint8_t *>(begin)),
       buf_byte_order(bo)
     {
         validate(begin, end);
@@ -82,8 +205,8 @@ public:
     {
         validate(begin, end);
         cursor    =
-        buf_begin = static_cast<const unsigned char *>(begin);
-        buf_end   = static_cast<const unsigned char *>(end);
+        buf_begin = static_cast<const uint8_t *>(begin);
+        buf_end   = static_cast<const uint8_t *>(end);
         return *this;
     }
     
@@ -101,33 +224,7 @@ public:
     template <typename scalar_type>
     bytefluo & operator>>(scalar_type & out)
     {
-        out = scalar_type();    // initialise result to 'zero'
-        const size_t out_size = sizeof(out);
-        if (buf_end - cursor < static_cast<ptrdiff_t>(out_size))
-            throw bytefluo_exception(
-                bytefluo_exception::attempt_to_read_past_end,
-                "bytefluo: attempt to read past end of data");
-        if (buf_byte_order == big) {
-            // cursor -> most significant byte
-            const unsigned char * p = cursor;
-            cursor += out_size;
-            for (;;) {
-                out |= *p++;
-                if (p == cursor)
-                    break;
-                out <<= CHAR_BIT;
-            }
-        }
-        else {
-            // cursor -> least significant byte
-            for (const unsigned char * p = cursor + out_size;;) {
-                out |= *--p;
-                if (p == cursor)
-                    break;
-                out <<= CHAR_BIT;
-            }
-            cursor += out_size;
-        }
+        impl<scalar_type, sizeof(scalar_type)>::read(out, cursor, buf_end, buf_byte_order);
         return *this;
     }
 
@@ -204,9 +301,9 @@ public:
     }
     
 private:
-    const unsigned char * buf_begin;
-    const unsigned char * buf_end;
-    const unsigned char * cursor;
+    const uint8_t * buf_begin;
+    const uint8_t * buf_end;
+    const uint8_t * cursor;
     byte_order buf_byte_order;
 
     // throw an exception if given buffer limits are obviously bad
