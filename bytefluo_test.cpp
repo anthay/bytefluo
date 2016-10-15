@@ -983,7 +983,7 @@ void test_performance()
     }
     std::cout
         << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB in 8-bit chunks via raw pointer " << best_raw_read_ms
+        << " MiB via raw pointer to 8-bit " << best_raw_read_ms
         << " ms, via bytefluo " << best_read_ms
         << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
         << ")\n";
@@ -1044,7 +1044,7 @@ void test_performance()
     }
     std::cout
         << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB in 16-bit chunks via raw pointer " << best_raw_read_ms
+        << " MiB via raw pointer to 16-bit " << best_raw_read_ms
         << " ms, via bytefluo " << best_read_ms
         << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
         << ")\n";
@@ -1105,7 +1105,7 @@ void test_performance()
     }
     std::cout
         << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB in 32-bit chunks via raw pointer " << best_raw_read_ms
+        << " MiB via raw pointer to 32-bit " << best_raw_read_ms
         << " ms, via bytefluo " << best_read_ms
         << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
         << ")\n";
@@ -1166,7 +1166,7 @@ void test_performance()
     }
     std::cout
         << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB in 64-bit chunks via raw pointer " << best_raw_read_ms
+        << " MiB via raw pointer to 64-bit " << best_raw_read_ms
         << " ms, via bytefluo " << best_read_ms
         << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
         << ")\n";
