@@ -58,24 +58,34 @@ your code and start using it.
 The bytefluo library is distributed with a self-contained unit test in
 the file bytefluo_test.cpp. Compile this file and run it.
 
-OSX
- $ g++ -Wall bytefluo_test.cpp
+OS X
+ $ clang++ -std=c++11 -stdlib=libc++ -O3 -Wall -I. bytefluo_test.cpp
  $ ./a.out
  tests executed N, tests failed 0
 
+Alternatively, use the makefile in build/clang
+
+ $ cd build/clang/
+ $ make test
+ clang++ -std=c++11 -stdlib=libc++ -O3 -Wall -I../.. ../../bytefluo_test.cpp
+  -o bytefluo_test
+ ./bytefluo_test
+ tests executed N, tests failed 0
+
 Windows
- C:\test> cl /EHsc /W4 /nologo bytefluo_test.cpp
+ C:\test> cl /EHsc /W4 /O2 /nologo bytefluo_test.cpp
  C:\test> bytefluo_test
  tests executed N, tests failed 0
+
+Alternatively, double-click the project file in build/msvc2013.
 
 (Where N is the number of tests in the current version of test suite.)
 
 The bytefluo library has been tested by the author under the following
 compilers
 
- - gcc v4.2.1 on OSX
- - Microsoft Visual C++ v7 (2003) on Windows
- - Comeau 4.3.10.1 Beta 2 online in strict C++03 mode
+ - clang++ 3.9.0 on OS X
+ - Microsoft Visual C++ 2013 community edition on Windows
 
 
 3  USING
@@ -376,5 +386,5 @@ The exception ids and their symbolic names are
 5  AUTHOR
 
  Anthony C. Hay
- January 2010
+ January 2016
  anthony.hay.1@gmail.com
