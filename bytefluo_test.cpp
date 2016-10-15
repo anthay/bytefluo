@@ -925,9 +925,35 @@ void test_performance()
     const int best_of_attempts = 5; // report only the best time seen
     const int repeats = 1000; // repeat inner loop this many times
     const size_t bytes_len = 1024 * 1024;
-    uint64_t best_read_ms;
+    uint64_t best_raw_read_ms, best_read_ms;
 
     // test 8-bit reads
+    best_raw_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (int b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        const int limit = int(bytes_len);
+        uint8_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            const uint8_t * p = &bytes[0];
+            for (int k = 0; k < limit; ++k) {
+                uint8_t v;
+                v = *p++;
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "thank you for your patience\n";
+
+        if (ms < best_raw_read_ms)
+            best_raw_read_ms = ms;
+    }
     best_read_ms = 99999999;
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         std::vector<uint8_t> bytes(bytes_len);
@@ -936,7 +962,7 @@ void test_performance()
 
         bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
         const int limit = int(bytes_len);
-        uint16_t x = 0;
+        uint8_t x = 0;
 
         t.reset();
         for (int j = 0; j < repeats; ++j) {
@@ -957,9 +983,38 @@ void test_performance()
     }
     std::cout
         << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB in 8-bit chunks in " << best_read_ms << " ms\n";
+        << " MiB in 8-bit chunks via raw pointer " << best_raw_read_ms
+        << " ms, via bytefluo " << best_read_ms
+        << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
+        << ")\n";
 
     // test 16-bit reads
+    best_raw_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        const int limit = int(bytes_len / 2);
+        std::vector<uint16_t> bytes(limit);
+        for (int b = 0; b < limit; ++b)
+            bytes[b] = uint16_t(rand());
+
+        uint16_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            const uint16_t * p = &bytes[0];
+            for (int k = 0; k < limit; ++k) {
+                uint16_t v;
+                v = *p++;
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "thank you for your patience\n";
+
+        if (ms < best_raw_read_ms)
+            best_raw_read_ms = ms;
+    }
     best_read_ms = 99999999;
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         std::vector<uint8_t> bytes(bytes_len);
@@ -989,9 +1044,38 @@ void test_performance()
     }
     std::cout
         << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB in 16-bit chunks in " << best_read_ms << " ms\n";
+        << " MiB in 16-bit chunks via raw pointer " << best_raw_read_ms
+        << " ms, via bytefluo " << best_read_ms
+        << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
+        << ")\n";
 
     // test 32-bit reads
+    best_raw_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        const int limit = int(bytes_len / 4);
+        std::vector<uint32_t> bytes(limit);
+        for (int b = 0; b < limit; ++b)
+            bytes[b] = uint32_t(rand());
+
+        uint32_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            const uint32_t * p = &bytes[0];
+            for (int k = 0; k < limit; ++k) {
+                uint32_t v;
+                v = *p++;
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "thank you for your patience\n";
+
+        if (ms < best_raw_read_ms)
+            best_raw_read_ms = ms;
+    }
     best_read_ms = 99999999;
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         std::vector<uint8_t> bytes(bytes_len);
@@ -1021,9 +1105,38 @@ void test_performance()
     }
     std::cout
         << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB in 32-bit chunks in " << best_read_ms << " ms\n";
+        << " MiB in 32-bit chunks via raw pointer " << best_raw_read_ms
+        << " ms, via bytefluo " << best_read_ms
+        << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
+        << ")\n";
 
     // test 64-bit reads
+    best_raw_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        const int limit = int(bytes_len / 8);
+        std::vector<uint64_t> bytes(limit);
+        for (int b = 0; b < limit; ++b)
+            bytes[b] = uint64_t(rand());
+
+        uint64_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            const uint64_t * p = &bytes[0];
+            for (int k = 0; k < limit; ++k) {
+                uint64_t v;
+                v = *p++;
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "thank you for your patience\n";
+
+        if (ms < best_raw_read_ms)
+            best_raw_read_ms = ms;
+    }
     best_read_ms = 99999999;
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         std::vector<uint8_t> bytes(bytes_len);
@@ -1053,7 +1166,10 @@ void test_performance()
     }
     std::cout
         << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB in 64-bit chunks in " << best_read_ms << " ms\n";
+        << " MiB in 64-bit chunks via raw pointer " << best_raw_read_ms
+        << " ms, via bytefluo " << best_read_ms
+        << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
+        << ")\n";
 }
 
 
