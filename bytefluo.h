@@ -82,95 +82,90 @@ private:
     template <typename scalar_type>
     struct impl<scalar_type, 1> {
         // read one 8-bit value at the current cursor location; byte order is irrelevant
-        static inline void read(scalar_type & out, const uint8_t *& cursor,
-            const uint8_t * const buf_end, byte_order)
+        static inline void read_be(scalar_type & out, const uint8_t * cursor)
         {
-            out = scalar_type(*cursor++);
+            out = scalar_type(*cursor);
+        }
+        // read one 8-bit value at the current cursor location; byte order is irrelevant
+        static inline void read_le(scalar_type & out, const uint8_t * cursor)
+        {
+            out = scalar_type(*cursor);
         }
     };
 
     template <typename scalar_type>
     struct impl<scalar_type, 2> {
-        // read one 16-bit value at the current cursor location
-        static inline void read(scalar_type & out, const uint8_t *& cursor,
-            const uint8_t * const buf_end, byte_order buf_byte_order)
+        // read one 16-bit big-endian value at the current cursor location
+        static inline void read_be(scalar_type & out, const uint8_t * cursor)
         {
-            if (buf_byte_order == little) {
-                // cursor -> least significant byte
-                out = scalar_type(uint16_t(cursor[1]) << CHAR_BIT | uint16_t(cursor[0]));
-            }
-            else {
-                // cursor -> most significant byte
-                out = scalar_type(uint16_t(cursor[0]) << CHAR_BIT | uint16_t(cursor[1]));
-            }
-
-            cursor += 2;
+            // cursor -> most significant byte
+            out = scalar_type(uint16_t(cursor[0]) << CHAR_BIT | uint16_t(cursor[1]));
+        }
+        // read one 16-bit little-endian value at the current cursor location
+        static inline void read_le(scalar_type & out, const uint8_t * cursor)
+        {
+            // cursor -> least significant byte
+            out = scalar_type(uint16_t(cursor[1]) << CHAR_BIT | uint16_t(cursor[0]));
         }
     };
 
     template <typename scalar_type>
     struct impl<scalar_type, 4> {
-        // read one 32-bit value at the current cursor location
-        static inline void read(scalar_type & out, const uint8_t *& cursor,
-            const uint8_t * const buf_end, byte_order buf_byte_order)
+        // read one 32-bit big-endian value at the current cursor location
+        static inline void read_be(scalar_type & out, const uint8_t * cursor)
         {
-            if (buf_byte_order == little) {
-                // cursor -> least significant byte
-                auto o3 = uint32_t(cursor[3]) << CHAR_BIT * 3;
-                auto o2 = uint32_t(cursor[2]) << CHAR_BIT * 2;
-                auto o1 = uint32_t(cursor[1]) << CHAR_BIT;
-                auto o0 = uint32_t(cursor[0]);
-                out = scalar_type(o3 | o2 | o1 | o0);
-            }
-            else {
-                // cursor -> most significant byte
-                auto o3 = uint32_t(cursor[0]) << CHAR_BIT * 3;
-                auto o2 = uint32_t(cursor[1]) << CHAR_BIT * 2;
-                auto o1 = uint32_t(cursor[2]) << CHAR_BIT;
-                auto o0 = uint32_t(cursor[3]);
-                out = scalar_type(o3 | o2 | o1 | o0);
-            }
-
-            cursor += 4;
+            // cursor -> most significant byte
+            auto o3 = uint32_t(cursor[0]) << CHAR_BIT * 3;
+            auto o2 = uint32_t(cursor[1]) << CHAR_BIT * 2;
+            auto o1 = uint32_t(cursor[2]) << CHAR_BIT;
+            auto o0 = uint32_t(cursor[3]);
+            out = scalar_type(o3 | o2 | o1 | o0);
+        }
+        // read one 32-bit little-endian value at the current cursor location
+        static inline void read_le(scalar_type & out, const uint8_t * cursor)
+        {
+            // cursor -> least significant byte
+            auto o3 = uint32_t(cursor[3]) << CHAR_BIT * 3;
+            auto o2 = uint32_t(cursor[2]) << CHAR_BIT * 2;
+            auto o1 = uint32_t(cursor[1]) << CHAR_BIT;
+            auto o0 = uint32_t(cursor[0]);
+            out = scalar_type(o3 | o2 | o1 | o0);
         }
     };
 
     template <typename scalar_type>
     struct impl<scalar_type, 8> {
-        // read one 64-bit value at the current cursor location
-        static inline void read(scalar_type & out, const uint8_t *& cursor,
-            const uint8_t * const buf_end, byte_order buf_byte_order)
+        // read one 64-bit big-endian value at the current cursor location
+        static inline void read_be(scalar_type & out, const uint8_t * cursor)
         {
-            if (buf_byte_order == little) {
-                // cursor -> least significant byte
-                auto h3 = uint32_t(cursor[7]) << CHAR_BIT * 3;
-                auto h2 = uint32_t(cursor[6]) << CHAR_BIT * 2;
-                auto h1 = uint32_t(cursor[5]) << CHAR_BIT;
-                auto h0 = uint32_t(cursor[4]);
-                auto h = h3 | h2 | h1 | h0;
-                auto l3 = uint32_t(cursor[3]) << CHAR_BIT * 3;
-                auto l2 = uint32_t(cursor[2]) << CHAR_BIT * 2;
-                auto l1 = uint32_t(cursor[1]) << CHAR_BIT;
-                auto l0 = uint32_t(cursor[0]);
-                auto l = l3 | l2 | l1 | l0;
-                out = scalar_type(uint64_t(h) << CHAR_BIT * 4 | uint64_t(l));
-            }
-            else {
-                // cursor -> most significant byte
-                auto h3 = uint32_t(cursor[0]) << CHAR_BIT * 3;
-                auto h2 = uint32_t(cursor[1]) << CHAR_BIT * 2;
-                auto h1 = uint32_t(cursor[2]) << CHAR_BIT;
-                auto h0 = uint32_t(cursor[3]);
-                auto h = h3 | h2 | h1 | h0;
-                auto l3 = uint32_t(cursor[4]) << CHAR_BIT * 3;
-                auto l2 = uint32_t(cursor[5]) << CHAR_BIT * 2;
-                auto l1 = uint32_t(cursor[6]) << CHAR_BIT;
-                auto l0 = uint32_t(cursor[7]);
-                auto l = l3 | l2 | l1 | l0;
-                out = scalar_type(uint64_t(h) << CHAR_BIT * 4 | uint64_t(l));
-            }
-
-            cursor += 8;
+            // cursor -> most significant byte
+            auto h3 = uint32_t(cursor[0]) << CHAR_BIT * 3;
+            auto h2 = uint32_t(cursor[1]) << CHAR_BIT * 2;
+            auto h1 = uint32_t(cursor[2]) << CHAR_BIT;
+            auto h0 = uint32_t(cursor[3]);
+            auto h = h3 | h2 | h1 | h0;
+            auto l3 = uint32_t(cursor[4]) << CHAR_BIT * 3;
+            auto l2 = uint32_t(cursor[5]) << CHAR_BIT * 2;
+            auto l1 = uint32_t(cursor[6]) << CHAR_BIT;
+            auto l0 = uint32_t(cursor[7]);
+            auto l = l3 | l2 | l1 | l0;
+            out = scalar_type(uint64_t(h) << CHAR_BIT * 4 | uint64_t(l));
+        }
+        // read one 64-bit little-endian value at the current cursor location
+        static inline void read_le(scalar_type & out, const uint8_t * cursor)
+        {
+            // cursor -> least significant byte
+            auto h3 = uint32_t(cursor[7]) << CHAR_BIT * 3;
+            auto h2 = uint32_t(cursor[6]) << CHAR_BIT * 2;
+            auto h1 = uint32_t(cursor[5]) << CHAR_BIT;
+            auto h0 = uint32_t(cursor[4]);
+            auto h = h3 | h2 | h1 | h0;
+            auto l3 = uint32_t(cursor[3]) << CHAR_BIT * 3;
+            auto l2 = uint32_t(cursor[2]) << CHAR_BIT * 2;
+            auto l1 = uint32_t(cursor[1]) << CHAR_BIT;
+            auto l0 = uint32_t(cursor[0]);
+            auto l = l3 | l2 | l1 | l0;
+            out = scalar_type(uint64_t(h) << CHAR_BIT * 4 | uint64_t(l));
         }
     };
 
@@ -219,14 +214,45 @@ public:
         return *this;
     }
 
-    // read an integer scalar value from buffer at current cursor position
+    // read an integer scalar value from buffer at current cursor position;
+    // use big-endian byte order (ignore buf_byte_order value and save time)
+    template <typename scalar_type>
+    bytefluo & read_be(scalar_type & out)
+    {
+        if (buf_end - cursor < sizeof(scalar_type))
+            throw bytefluo_exception(bytefluo_exception::attempt_to_read_past_end,
+                "bytefluo: attempt to read past end of data");
+        impl<scalar_type, sizeof(scalar_type)>::read_be(out, cursor);
+        cursor += sizeof(scalar_type);
+        return *this;
+    }
+
+    // read an integer scalar value from buffer at current cursor position;
+    // use little-endian byte order (ignore buf_byte_order value and save time)
+    template <typename scalar_type>
+    bytefluo & read_le(scalar_type & out)
+    {
+        if (buf_end - cursor < sizeof(scalar_type))
+            throw bytefluo_exception(bytefluo_exception::attempt_to_read_past_end,
+                "bytefluo: attempt to read past end of data");
+        impl<scalar_type, sizeof(scalar_type)>::read_le(out, cursor);
+        cursor += sizeof(scalar_type);
+        return *this;
+    }
+
+    // read an integer scalar value from buffer at current cursor position;
+    // byte order determined by current buf_byte_order value
     template <typename scalar_type>
     bytefluo & operator>>(scalar_type & out)
     {
         if (buf_end - cursor < sizeof(scalar_type))
             throw bytefluo_exception(bytefluo_exception::attempt_to_read_past_end,
                 "bytefluo: attempt to read past end of data");
-        impl<scalar_type, sizeof(scalar_type)>::read(out, cursor, buf_end, buf_byte_order);
+        if (buf_byte_order == little)
+            impl<scalar_type, sizeof(scalar_type)>::read_le(out, cursor);
+        else
+            impl<scalar_type, sizeof(scalar_type)>::read_be(out, cursor);
+        cursor += sizeof(scalar_type);
         return *this;
     }
 

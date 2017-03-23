@@ -913,25 +913,115 @@ void test_basic_functionality()
         TEST_EQUAL(val64, 0x0908070605040302ull);
         TEST_EQUAL(b.tellg(), 9);
     }
+
+    // test read_be and read_le
+    {
+        const uint8_t bytes[] = {
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+        };
+        bytefluo b(bytes, bytes + sizeof(bytes), bytefluo::big);
+
+        uint8_t val8;
+        // test 8-bit read_be()
+        b.set_byte_order(bytefluo::little).seek_begin(1);
+        b.read_be(val8);
+        TEST_EQUAL(val8, 0x02ul);
+        TEST_EQUAL(b.tellg(), 2);
+        b.set_byte_order(bytefluo::big).seek_begin(1);
+        b.read_be(val8);
+        TEST_EQUAL(val8, 0x02ul);
+        TEST_EQUAL(b.tellg(), 2);
+        // test 32-bit read_le()
+        b.set_byte_order(bytefluo::little).seek_begin(1);
+        b.read_le(val8);
+        TEST_EQUAL(val8, 0x02ul);
+        TEST_EQUAL(b.tellg(), 2);
+        b.set_byte_order(bytefluo::big).seek_begin(1);
+        b.read_le(val8);
+        TEST_EQUAL(val8, 0x02ul);
+        TEST_EQUAL(b.tellg(), 2);
+
+        uint16_t val16;
+        // test 16-bit read_be()
+        b.set_byte_order(bytefluo::little).seek_begin(1);
+        b.read_be(val16);
+        TEST_EQUAL(val16, 0x0203ul);
+        TEST_EQUAL(b.tellg(), 3);
+        b.set_byte_order(bytefluo::big).seek_begin(1);
+        b.read_be(val16);
+        TEST_EQUAL(val16, 0x0203ul);
+        TEST_EQUAL(b.tellg(), 3);
+        // test 32-bit read_le()
+        b.set_byte_order(bytefluo::little).seek_begin(1);
+        b.read_le(val16);
+        TEST_EQUAL(val16, 0x0302ul);
+        TEST_EQUAL(b.tellg(), 3);
+        b.set_byte_order(bytefluo::big).seek_begin(1);
+        b.read_le(val16);
+        TEST_EQUAL(val16, 0x0302ul);
+        TEST_EQUAL(b.tellg(), 3);
+
+        uint32_t val32;
+        // test 32-bit read_be()
+        b.set_byte_order(bytefluo::little).seek_begin(1);
+        b.read_be(val32);
+        TEST_EQUAL(val32, 0x02030405ul);
+        TEST_EQUAL(b.tellg(), 5);
+        b.set_byte_order(bytefluo::big).seek_begin(1);
+        b.read_be(val32);
+        TEST_EQUAL(val32, 0x02030405ul);
+        TEST_EQUAL(b.tellg(), 5);
+        // test 32-bit read_le()
+        b.set_byte_order(bytefluo::little).seek_begin(1);
+        b.read_le(val32);
+        TEST_EQUAL(val32, 0x05040302ul);
+        TEST_EQUAL(b.tellg(), 5);
+        b.set_byte_order(bytefluo::big).seek_begin(1);
+        b.read_le(val32);
+        TEST_EQUAL(val32, 0x05040302ul);
+        TEST_EQUAL(b.tellg(), 5);
+
+        uint64_t val64;
+        // test 64-bit read_be()
+        b.set_byte_order(bytefluo::little).seek_begin(1);
+        b.read_be(val64);
+        TEST_EQUAL(val64, 0x0203040506070809ull);
+        TEST_EQUAL(b.tellg(), 9);
+        b.set_byte_order(bytefluo::big).seek_begin(1);
+        b.read_be(val64);
+        TEST_EQUAL(val64, 0x0203040506070809ull);
+        TEST_EQUAL(b.tellg(), 9);
+        // test 64-bit read_le()
+        b.set_byte_order(bytefluo::little).seek_begin(1);
+        b.read_le(val64);
+        TEST_EQUAL(val64, 0x0908070605040302ull);
+        TEST_EQUAL(b.tellg(), 9);
+        b.set_byte_order(bytefluo::big).seek_begin(1);
+        b.read_le(val64);
+        TEST_EQUAL(val64, 0x0908070605040302ull);
+        TEST_EQUAL(b.tellg(), 9);
+
+        b.seek_begin(0);
+        b.read_be(val8).read_le(val16).read_be(val32).read_le(val64);
+        TEST_EQUAL(val8, 0x01u);
+        TEST_EQUAL(val16, 0x0302u);
+        TEST_EQUAL(val32, 0x04050607ul);
+        TEST_EQUAL(val64, 0x0F0E0D0C0B0A0908ull);
+    }
 }
 
-
-void test_performance()
+void test_performance_8(int best_of_attempts, int repeats, size_t bytes_len)
 {
-    // some of what follows may look weird - it's an attempt to stop
-    // the compiler optimising away the test code
-
     timer t;
-    const int best_of_attempts = 5; // report only the best time seen
-    const int repeats = 1000; // repeat inner loop this many times
-    const size_t bytes_len = 1024 * 1024;
-    uint64_t best_raw_read_ms, best_read_ms;
+    uint64_t best_raw_read_ms = 99999999;
+    uint64_t best_read_ms = 99999999;
+    uint64_t best_read_le_ms = 99999999;
+    uint64_t best_read_be_ms = 99999999;
 
-    // test 8-bit reads
-    best_raw_read_ms = 99999999;
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         std::vector<uint8_t> bytes(bytes_len);
-        for (int b = 0; b < bytes_len; ++b)
+        for (size_t b = 0; b < bytes_len; ++b)
             bytes[b] = uint8_t(rand());
 
         const int limit = int(bytes_len);
@@ -949,15 +1039,15 @@ void test_performance()
         const uint64_t ms = t.elapsed_ms();
 
         if (x == ms)
-            std::cout << "thank you for your patience\n";
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
 
         if (ms < best_raw_read_ms)
             best_raw_read_ms = ms;
     }
-    best_read_ms = 99999999;
+
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         std::vector<uint8_t> bytes(bytes_len);
-        for (int b = 0; b < bytes_len; ++b)
+        for (size_t b = 0; b < bytes_len; ++b)
             bytes[b] = uint8_t(rand());
 
         bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
@@ -976,20 +1066,85 @@ void test_performance()
         const uint64_t ms = t.elapsed_ms();
 
         if (x == ms)
-            std::cout << "thank you for your patience\n";
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
 
         if (ms < best_read_ms)
             best_read_ms = ms;
     }
-    std::cout
-        << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB via raw pointer to 8-bit " << best_raw_read_ms
-        << " ms, via bytefluo " << best_read_ms
-        << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
-        << ")\n";
 
-    // test 16-bit reads
-    best_raw_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (size_t b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len);
+        uint8_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint8_t v;
+                b.read_le(v);
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
+
+        if (ms < best_read_le_ms)
+            best_read_le_ms = ms;
+    }
+
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (size_t b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len);
+        uint8_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint8_t v;
+                b.read_be(v);
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
+
+        if (ms < best_read_be_ms)
+            best_read_be_ms = ms;
+    }
+
+    std::cout
+        << " uint8_t* " << best_raw_read_ms
+        << "ms, op>> " << best_read_ms
+        << "ms (x" << double(best_read_ms)/double(best_raw_read_ms)
+        << "), read_le " << best_read_le_ms
+        << "ms (x" << double(best_read_le_ms)/double(best_raw_read_ms)
+        << "), read_be " << best_read_be_ms
+        << "ms (x" << double(best_read_be_ms)/double(best_raw_read_ms)
+        << ")\n";
+}
+
+void test_performance_16(int best_of_attempts, int repeats, size_t bytes_len)
+{
+    timer t;
+    uint64_t best_raw_read_ms = 99999999;
+    uint64_t best_read_ms = 99999999;
+    uint64_t best_read_le_ms = 99999999;
+    uint64_t best_read_be_ms = 99999999;
+
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         const int limit = int(bytes_len / 2);
         std::vector<uint16_t> bytes(limit);
@@ -1010,15 +1165,15 @@ void test_performance()
         const uint64_t ms = t.elapsed_ms();
 
         if (x == ms)
-            std::cout << "thank you for your patience\n";
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
 
         if (ms < best_raw_read_ms)
             best_raw_read_ms = ms;
     }
-    best_read_ms = 99999999;
+
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         std::vector<uint8_t> bytes(bytes_len);
-        for (int b = 0; b < bytes_len; ++b)
+        for (size_t b = 0; b < bytes_len; ++b)
             bytes[b] = uint8_t(rand());
 
         bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
@@ -1037,20 +1192,85 @@ void test_performance()
         const uint64_t ms = t.elapsed_ms();
 
         if (x == ms)
-            std::cout << "thank you for your patience\n";
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
 
         if (ms < best_read_ms)
             best_read_ms = ms;
     }
-    std::cout
-        << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB via raw pointer to 16-bit " << best_raw_read_ms
-        << " ms, via bytefluo " << best_read_ms
-        << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
-        << ")\n";
 
-    // test 32-bit reads
-    best_raw_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (size_t b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len / 2);
+        uint16_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint16_t v;
+                b.read_le(v);
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
+
+        if (ms < best_read_le_ms)
+            best_read_le_ms = ms;
+    }
+
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (size_t b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len / 2);
+        uint16_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint16_t v;
+                b.read_be(v);
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
+
+        if (ms < best_read_be_ms)
+            best_read_be_ms = ms;
+    }
+
+    std::cout
+        << "uint16_t* " << best_raw_read_ms
+        << "ms, op>> " << best_read_ms
+        << "ms (x" << double(best_read_ms)/double(best_raw_read_ms)
+        << "), read_le " << best_read_le_ms
+        << "ms (x" << double(best_read_le_ms)/double(best_raw_read_ms)
+        << "), read_be " << best_read_be_ms
+        << "ms (x" << double(best_read_be_ms)/double(best_raw_read_ms)
+        << ")\n";
+}
+
+void test_performance_32(int best_of_attempts, int repeats, size_t bytes_len)
+{
+    timer t;
+    uint64_t best_raw_read_ms = 99999999;
+    uint64_t best_read_ms = 99999999;
+    uint64_t best_read_le_ms = 99999999;
+    uint64_t best_read_be_ms = 99999999;
+
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         const int limit = int(bytes_len / 4);
         std::vector<uint32_t> bytes(limit);
@@ -1071,15 +1291,15 @@ void test_performance()
         const uint64_t ms = t.elapsed_ms();
 
         if (x == ms)
-            std::cout << "thank you for your patience\n";
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
 
         if (ms < best_raw_read_ms)
             best_raw_read_ms = ms;
     }
-    best_read_ms = 99999999;
+
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         std::vector<uint8_t> bytes(bytes_len);
-        for (int b = 0; b < bytes_len; ++b)
+        for (size_t b = 0; b < bytes_len; ++b)
             bytes[b] = uint8_t(rand());
 
         bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
@@ -1098,20 +1318,85 @@ void test_performance()
         const uint64_t ms = t.elapsed_ms();
 
         if (x == ms)
-            std::cout << "thank you for your patience\n";
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
 
         if (ms < best_read_ms)
             best_read_ms = ms;
     }
-    std::cout
-        << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB via raw pointer to 32-bit " << best_raw_read_ms
-        << " ms, via bytefluo " << best_read_ms
-        << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
-        << ")\n";
 
-    // test 64-bit reads
-    best_raw_read_ms = 99999999;
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (size_t b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len / 4);
+        uint32_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint32_t v;
+                b.read_le(v);
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
+
+        if (ms < best_read_le_ms)
+            best_read_le_ms = ms;
+    }
+
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (size_t b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len / 4);
+        uint32_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint32_t v;
+                b.read_be(v);
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
+
+        if (ms < best_read_be_ms)
+            best_read_be_ms = ms;
+    }
+
+    std::cout
+        << "uint32_t* " << best_raw_read_ms
+        << "ms, op>> " << best_read_ms
+        << "ms (x" << double(best_read_ms)/double(best_raw_read_ms)
+        << "), read_le " << best_read_le_ms
+        << "ms (x" << double(best_read_le_ms)/double(best_raw_read_ms)
+        << "), read_be " << best_read_be_ms
+        << "ms (x" << double(best_read_be_ms)/double(best_raw_read_ms)
+        << ")\n";
+}
+
+void test_performance_64(int best_of_attempts, int repeats, size_t bytes_len)
+{
+    timer t;
+    uint64_t best_raw_read_ms = 99999999;
+    uint64_t best_read_ms = 99999999;
+    uint64_t best_read_le_ms = 99999999;
+    uint64_t best_read_be_ms = 99999999;
+
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         const int limit = int(bytes_len / 8);
         std::vector<uint64_t> bytes(limit);
@@ -1132,15 +1417,15 @@ void test_performance()
         const uint64_t ms = t.elapsed_ms();
 
         if (x == ms)
-            std::cout << "thank you for your patience\n";
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
 
         if (ms < best_raw_read_ms)
             best_raw_read_ms = ms;
     }
-    best_read_ms = 99999999;
+
     for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
         std::vector<uint8_t> bytes(bytes_len);
-        for (int b = 0; b < bytes_len; ++b)
+        for (size_t b = 0; b < bytes_len; ++b)
             bytes[b] = uint8_t(rand());
 
         bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
@@ -1159,17 +1444,91 @@ void test_performance()
         const uint64_t ms = t.elapsed_ms();
 
         if (x == ms)
-            std::cout << "thank you for your patience\n";
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
 
         if (ms < best_read_ms)
             best_read_ms = ms;
     }
+
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (size_t b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len / 8);
+        uint64_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint64_t v;
+                b.read_le(v);
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
+
+        if (ms < best_read_le_ms)
+            best_read_le_ms = ms;
+    }
+
+    for (int attempt = 0; attempt < best_of_attempts; ++attempt) {
+        std::vector<uint8_t> bytes(bytes_len);
+        for (size_t b = 0; b < bytes_len; ++b)
+            bytes[b] = uint8_t(rand());
+
+        bytefluo b(bytefluo_from_vector(bytes, bytefluo::little));
+        const int limit = int(bytes_len / 8);
+        uint64_t x = 0;
+
+        t.reset();
+        for (int j = 0; j < repeats; ++j) {
+            b.seek_begin(0);
+            for (int k = 0; k < limit; ++k) {
+                uint64_t v;
+                b.read_be(v);
+                x += v;
+            }
+        }
+        const uint64_t ms = t.elapsed_ms();
+
+        if (x == ms)
+            std::cout << "an attempt to stop the compiler optimising away the test code\n";
+
+        if (ms < best_read_be_ms)
+            best_read_be_ms = ms;
+    }
     std::cout
-        << "read " << (repeats * bytes_len) / (1024 * 1024)
-        << " MiB via raw pointer to 64-bit " << best_raw_read_ms
-        << " ms, via bytefluo " << best_read_ms
-        << " ms (" << double(best_read_ms)/double(best_raw_read_ms)
+        << "uint64_t* " << best_raw_read_ms
+        << "ms, op>> " << best_read_ms
+        << "ms (x" << double(best_read_ms)/double(best_raw_read_ms)
+        << "), read_le " << best_read_le_ms
+        << "ms (x" << double(best_read_le_ms)/double(best_raw_read_ms)
+        << "), read_be " << best_read_be_ms
+        << "ms (x" << double(best_read_be_ms)/double(best_raw_read_ms)
         << ")\n";
+}
+
+void test_performance()
+{
+    std::cout << "timing..." << std::endl;
+    std::cout.precision(3);
+
+    timer t;
+    const int best_of_attempts = 5; // report only the best time seen
+    const int repeats = 1000; // repeat inner loop this many times
+    const size_t bytes_len = 1024 * 1024;
+
+    test_performance_8(best_of_attempts, repeats, bytes_len);
+    test_performance_16(best_of_attempts, repeats, bytes_len);
+    test_performance_32(best_of_attempts, repeats, bytes_len);
+    test_performance_64(best_of_attempts, repeats, bytes_len);
+
 }
 
 

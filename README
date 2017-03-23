@@ -13,17 +13,17 @@ bounds of the buffer.
 The class was created to simplify the low-level parsing of binary
 data structures and to avoid having to write code such as
 
- unsigned short foo = static_cast<unsigned short>(*bar++) << 8;
- foo |= static_cast<unsigned short>(*bar++);
+ uint16_t foo = static_cast<uint16_t>(*bar++) << 8;
+ foo |= static_cast<uint16_t>(*bar++);
 
 or
 
- unsigned short foo = ntohs(*(unsigned short *)bar);
+ uint16_t foo = ntohs(*(uint16_t *)bar);
  bar += 2;
 
 and instead just write
 
- unsigned short foo;
+ uint16_t foo;
  bar >> foo;
 
 (where this bar is a bytefluo object rather than the raw pointer of
@@ -35,9 +35,9 @@ object through which we will access the data, such as
 
 we can then do things like this
 
- unsigned short a;
- unsigned char b;
- unsugned int c;
+ uint16_t a;
+ uint8_t b;
+ uint32_t c;
 
  buf >> a >> b >> c;
 
@@ -101,7 +101,7 @@ Here is another:
          0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77
      };
      bytefluo buf(bytes, bytes + sizeof(bytes), bytefluo::big);
-     unsigned long x;
+     uint32_t x;
      buf >> x;  // x = 0x00112233
      buf.set_byte_order(bytefluo::little);
      buf >> x;  // x = 0x77665544
@@ -150,7 +150,7 @@ Throws bytefluo_exception if begin > end or if 'bo' is neither big
 nor little.
 
 Example:
- unsigned char foo[99];
+ uint8_t foo[99];
  bytefluo buf(foo, foo + sizeof(foo), bytefluo::big);
 
 
@@ -185,7 +185,7 @@ the associated bytefluo object so that attempts to read the vector
 contents via that bytefluo object may cause a CRASH.
 
 Example:
- std::vector<unsigned char> vec(99);
+ std::vector<uint8_t> vec(99);
  bytefluo buf(bytefluo_from_vector(vec, bytefluo::big));
 
 
@@ -202,7 +202,7 @@ byte-order setting is unaffected. Returns *this.
 Example:
  bytefluo buf;
  size_t siz = buf.size(); // siz = 0
- unsigned char foo[99];
+ uint8_t foo[99];
  buf.set_data_range(foo, foo + sizeof(foo));
  siz = buf.size(); // siz = 99
 
@@ -225,26 +225,51 @@ Example:
  buf.set_byte_order(bytefluo::big);
 
 
-3.2.6  READ INTEGER SCALAR
+3.2.6  READ INTEGER SCALAR VIA operator>>()
 
  template <typename scalar_type>
  bytefluo & operator>>(scalar_type & out)
 
 Read an integer scalar value from buffer at current cursor position.
 The scalar is read assuming the byte order set at construction or
-at the last call to set_byte_order(). The cursor is advanced by the
-size of the scalar read. Returns *this.
+at the last call to set_byte_order(). [Cf. read_le() and read_be().]
+The cursor is advanced by the size of the scalar read. Returns *this.
 
 Throws bytefluo_exception if the read would move the cursor after
 the end of the managed data range.
 
 Example:
  bytefluo buf(...);
- unsigned short foo, bar;
+ uint16_t foo, bar;
  buf >> foo >> bar;  // read two successive shorts, foo followed by bar
 
 
-3.2.7  READ ARBITRARY NUMBER OF BYTES
+3.2.7  READ INTEGER SCALAR VIA read_be() AND read_le() FUNCTIONS
+
+ template <typename scalar_type>
+ bytefluo & read_be(scalar_type & out)
+
+ template <typename scalar_type>
+ bytefluo & read_le(scalar_type & out)
+
+Read an integer scalar value from buffer at current cursor position.
+The scalar is read assuming big-endian byte order for read_be() and
+little-endian byte order for read_le(), *regardless* of the byte order
+set at construction or at the last call to set_byte_order(). [Cf.
+operator>>().] The cursor is advanced by the size of the scalar read.
+Returns *this.
+
+Throws bytefluo_exception if the read would move the cursor after
+the end of the managed data range.
+
+Example:
+ bytefluo buf(...);
+ uint16_t foo, bar;
+ // read big-endian foo followed by little-endian bar
+ buf.read_be(foo).read_le(bar);
+
+
+3.2.8  READ ARBITRARY NUMBER OF BYTES
 
  bytefluo & read(void * dest, size_t len)
 
@@ -258,11 +283,11 @@ the end of the managed data range.
 
 Example:
  bytefluo buf(...);
- unsigned char foo[23];
+ uint8_t foo[23];
  buf.read(foo, sizeof(foo));
 
 
-3.2.8  MOVE THE CURSOR
+3.2.9  MOVE THE CURSOR
 
  size_t seek_begin(size_t pos)
  size_t seek_current(long pos)
@@ -283,7 +308,7 @@ Example:
  size_t pos = buf.seek_end(3);  // cursor is 3 bytes from buffer end
 
 
-3.2.9  TEST FOR END OF STREAM
+3.2.10  TEST FOR END OF STREAM
 
  bool eos() const
 
@@ -296,7 +321,7 @@ Example:
  bool at_end = buf.eos();  // at_end = true
 
 
-3.2.10  GET STREAM SIZE
+3.2.11  GET STREAM SIZE
 
  size_t size() const
 
@@ -308,7 +333,7 @@ Example:
  size_t siz = buf.size(); // siz = 99
 
 
-3.2.11  GET CURSOR POSITION
+3.2.12  GET CURSOR POSITION
 
  size_t tellg() const
 
@@ -322,7 +347,7 @@ Example:
  size_t pos = buf.tellg();  // pos = 10
 
 
-3.2.12 THE EXCEPTIONS
+3.2.13 THE EXCEPTIONS
 
 If something goes wrong the bytefluo object will throw a bytefluo_exception
 object. You can catch this via the exception base class with
