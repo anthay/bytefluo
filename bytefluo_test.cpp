@@ -35,6 +35,15 @@ namespace {
 unsigned g_test_count;      // count of number of unit tests executed
 unsigned g_fault_count;     // count of number of unit tests that fail
 
+#define TEST_FAILED()                                   \
+{                                                       \
+    ++g_fault_count;                                    \
+    std::cout                                           \
+        << __FILE__ << '(' << __LINE__ << ") : "        \
+        << "in '" << __FUNCTION__ << "'"                \
+        << " TEST FAILED\n";                            \
+}
+
 // write a message to std::cout if value != expected_value
 #define TEST_EQUAL(value, expected_value)               \
     ++g_test_count;                                     \
@@ -1535,16 +1544,26 @@ void test_performance()
 // bytefluo unit test
 int main()
 {
-    test_basic_functionality();
-    test_basic_vector_functionality();
-    test_seek_begin();
-    test_seek_end();
-    test_seek_current();
-    test_size();
-    test_eos();
-    test_assignment();
-    test_ctor_exceptions();
-    test_more_or_less_real_world_example();
+    try {
+        test_basic_functionality();
+        test_basic_vector_functionality();
+        test_seek_begin();
+        test_seek_end();
+        test_seek_current();
+        test_size();
+        test_eos();
+        test_assignment();
+        test_ctor_exceptions();
+        test_more_or_less_real_world_example();
+    }
+    catch (const std::exception & e) {
+        std::cout << "unexpected exception: " << e.what() << '\n';
+        TEST_FAILED();
+    }
+    catch (...) {
+        std::cout << "unexpected exception\n";
+        TEST_FAILED();
+    }
 
     std::cout << "tests executed " << g_test_count;
     std::cout << ", tests failed " << g_fault_count << '\n';
